@@ -84,8 +84,36 @@ var Query = graphql.NewObject(
 					return count, err
 				},
 			},
+			"message": &graphql.Field{
+				Type:        model.MessageType,
+				Description: "Get message by id",
+				Args: graphql.FieldConfigArgument{
+					"id": &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.Int),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+
+					id, ok := p.Args["id"].(int)
+					if !ok {
+						return nil, errors.New("invalid id")
+					}
+
+					message := &model.Message{
+						Id: int64(id),
+					}
+
+					result, err := message.Load()
+
+					if err != nil {
+						return nil, err
+					}
+
+					return result, err
+				},
+			},
 			"messages": &graphql.Field{
-				Type:        graphql.NewList(model.MessageType),
+				Type: graphql.NewList(model.MessageType),
 				Args: graphql.FieldConfigArgument{
 					"limit": &graphql.ArgumentConfig{
 						Type:         graphql.Int,

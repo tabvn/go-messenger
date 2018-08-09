@@ -3,7 +3,6 @@ package model
 import (
 	"time"
 	"github.com/graphql-go/graphql"
-	"errors"
 	"messenger/db"
 	"database/sql"
 	"fmt"
@@ -112,52 +111,7 @@ func (m *Message) Update() (*Message, error) {
 	return m, nil
 }
 
-func scanMessage(s db.RowScanner) (*Message, error) {
-
-	var (
-		id      int64
-		userId  int64
-		groupId int64
-		body    sql.NullString
-		emoji   bool
-		created sql.NullInt64
-		updated sql.NullInt64
-	)
-
-	if err := s.Scan(&id, &userId, &groupId, &body, &emoji, &created, &updated);
-		err != nil {
-		return nil, err
-	}
-
-	m := &Message{
-		Id:      id,
-		UserId:  userId,
-		GroupId: groupId,
-		Emoji:   emoji,
-		Created: created.Int64,
-		Updated: updated.Int64,
-	}
-	return m, nil
-}
-
-func (m *Message) Load() (*Message, error) {
-
-	row, err := db.DB.Get("messages", m.Id)
-
-	if err != nil {
-		return nil, err
-	}
-
-	message, err := scanMessage(row)
-
-	if message == nil {
-		return nil, errors.New("user not found")
-	}
-
-	return message, err
-}
-
-func Messages(limit int, skip int) ([] *Message, error) {
+func scanMessage(rows *sql.Rows) ([] *Message, error) {
 
 	var (
 		id                 int64
@@ -175,27 +129,12 @@ func Messages(limit int, skip int) ([] *Message, error) {
 		attachmentCreated  sql.NullInt64
 	)
 
-	query := `
-		SELECT m.*, 
-		a.id, a.name, a.original, a.type, a.size, a.created
-		FROM messages AS m LEFT JOIN attachments as a 
-		ON m.id = a.message_id 
-		order by m.created DESC, a.created DESC 
-		LIMIT ? OFFSET ?
-	`
-
-	rows, err := db.DB.List(query, limit, skip)
-
-	if err != nil {
-		return nil, err
-	}
-
 	var messages []*Message
 	var message *Message
 
 	for rows.Next() {
 
-		if err = rows.Scan(&id, &userId, &groupId, &body, &emoji, &created, &updated, &attachmentId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize, &attachmentCreated); err != nil {
+		if err := rows.Scan(&id, &userId, &groupId, &body, &emoji, &created, &updated, &attachmentId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize, &attachmentCreated); err != nil {
 			fmt.Println("Scan message error", err)
 		}
 
@@ -234,6 +173,55 @@ func Messages(limit int, skip int) ([] *Message, error) {
 
 		}
 
+	}
+
+	return messages, nil
+}
+
+func (m *Message) Load() (*Message, error) {
+
+	query := `
+		SELECT m.*, 
+		a.id, a.name, a.original, a.type, a.size, a.created
+		FROM messages AS m LEFT JOIN attachments as a 
+		ON m.id = a.message_id 
+		WHERE m.id=?
+		order by m.created DESC, a.created DESC 
+		LIMIT ? OFFSET ?
+	`
+
+	rows, err := db.DB.List(query, m.Id, 1, 0)
+
+	messages, err := scanMessage(rows)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(messages) > 0 {
+		return messages[0], nil
+	}
+
+	return nil, err
+}
+
+func Messages(limit int, skip int) ([] *Message, error) {
+
+	query := `
+		SELECT m.*, 
+		a.id, a.name, a.original, a.type, a.size, a.created
+		FROM messages AS m LEFT JOIN attachments as a 
+		ON m.id = a.message_id 
+		order by m.created DESC, a.created DESC 
+		LIMIT ? OFFSET ?
+	`
+
+	rows, err := db.DB.List(query, limit, skip)
+
+	messages, err := scanMessage(rows)
+
+	if err != nil {
+		return nil, err
 	}
 
 	return messages, nil
