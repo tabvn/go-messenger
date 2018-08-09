@@ -208,7 +208,7 @@ func (m *Message) Load() (*Message, error) {
 func Messages(limit int, skip int) ([] *Message, error) {
 
 	query := `
-		SELECT m.*, 
+		SELECT m.id, m.user_id, m.group_id, m.body, m.emoji, m.created, m.updated, 
 		a.id, a.name, a.original, a.type, a.size, a.created
 		FROM messages AS m LEFT JOIN attachments as a 
 		ON m.id = a.message_id 
