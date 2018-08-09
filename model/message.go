@@ -6,6 +6,7 @@ import (
 	"errors"
 	"messenger/db"
 	"database/sql"
+	"fmt"
 )
 
 type Message struct {
@@ -99,10 +100,12 @@ func (m *Message) Update() (*Message, error) {
 	currentTime := time.Now()
 	m.Updated = currentTime.Unix()
 
-	query := `UPDATE users SET body=?, created=? WHERE id = ?`
-	_, err := db.DB.Update(query, m.Body, m.Updated, m.Id)
+	query := `UPDATE messages SET body=?, emoji=?, updated=? WHERE id = ?`
+
+	_, err := db.DB.Update(query, m.Body, m.Emoji, m.Updated, m.Id)
 
 	if err != nil {
+
 		return nil, err
 	}
 
@@ -137,9 +140,10 @@ func scanMessage(s db.RowScanner) (*Message, error) {
 	return m, nil
 }
 
-func (u *Message) Load() (*Message, error) {
+func (m *Message) Load() (*Message, error) {
 
-	row, err := db.DB.Get("users", u.Id)
+	row, err := db.DB.Get("messages", m.Id)
+
 	if err != nil {
 		return nil, err
 	}
@@ -151,6 +155,88 @@ func (u *Message) Load() (*Message, error) {
 	}
 
 	return message, err
+}
+
+func Messages(limit int, skip int) ([] *Message, error) {
+
+	var (
+		id                 int64
+		userId             int64
+		groupId            int64
+		body               sql.NullString
+		emoji              bool
+		created            int64
+		updated            int64
+		attachmentId       sql.NullInt64
+		attachmentName     sql.NullString
+		attachmentOriginal sql.NullString
+		attachmentType     sql.NullString
+		attachmentSize     sql.NullInt64
+		attachmentCreated  sql.NullInt64
+	)
+
+	query := `
+		SELECT m.*, 
+		a.id, a.name, a.original, a.type, a.size, a.created
+		FROM messages AS m LEFT JOIN attachments as a 
+		ON m.id = a.message_id 
+		order by m.created DESC, a.created DESC 
+		LIMIT ? OFFSET ?
+	`
+
+	rows, err := db.DB.List(query, limit, skip)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var messages []*Message
+	var message *Message
+
+	for rows.Next() {
+
+		if err = rows.Scan(&id, &userId, &groupId, &body, &emoji, &created, &updated, &attachmentId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize, &attachmentCreated); err != nil {
+			fmt.Println("Scan message error", err)
+		}
+
+		var attachment *Attachment
+
+		if attachmentId.Int64 != 0 {
+			attachment = &Attachment{
+				Id:       attachmentId.Int64,
+				UserId:   userId,
+				Name:     attachmentName.String,
+				Original: attachmentOriginal.String,
+				Type:     attachmentType.String,
+				Size:     int(attachmentSize.Int64),
+				Created:  attachmentCreated.Int64,
+			}
+		}
+
+		if message != nil && message.Id == id {
+			// exist so need append attachments
+			message.Attachments = append(message.Attachments, *attachment)
+
+		} else {
+			message = &Message{
+				Id:      id,
+				UserId:  userId,
+				GroupId: groupId,
+				Body:    body.String,
+				Emoji:   emoji,
+				Created: created,
+				Updated: updated,
+			}
+			if attachment != nil {
+				message.Attachments = append(message.Attachments, *attachment)
+			}
+			messages = append(messages, message)
+
+		}
+
+	}
+
+	return messages, nil
 }
 
 func (m *Message) Delete() (bool, error) {

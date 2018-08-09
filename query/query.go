@@ -56,7 +56,7 @@ var Query = graphql.NewObject(
 				},
 				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
-					auth := params.Context.Value("auth")
+					auth := model.GetAuth(params)
 
 					fmt.Println("Auth", auth)
 
@@ -82,6 +82,31 @@ var Query = graphql.NewObject(
 						return nil, err
 					}
 					return count, err
+				},
+			},
+			"messages": &graphql.Field{
+				Type:        graphql.NewList(model.MessageType),
+				Args: graphql.FieldConfigArgument{
+					"limit": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 50,
+					},
+					"skip": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
+				},
+				Description: "Get messages list",
+				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+					limit := params.Args["limit"].(int)
+					skip := params.Args["skip"].(int)
+
+					messages, err := model.Messages(limit, skip)
+					if err != nil {
+						return nil, err
+					}
+					return messages, err
 				},
 			},
 		},
