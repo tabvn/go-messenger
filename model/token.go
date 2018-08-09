@@ -40,6 +40,25 @@ var TokenType = graphql.NewObject(
 	},
 )
 
+func GetAuth(params graphql.ResolveParams) (*Auth) {
+
+	auth := params.Context.Value("auth")
+
+	if auth != nil {
+		a, ok := auth.(*Auth)
+
+
+		if !ok {
+			return nil
+		}
+
+
+		return a
+	}
+
+	return nil
+}
+
 func (token *Token) Create() (*Token, error) {
 
 	if token.Token == "" {

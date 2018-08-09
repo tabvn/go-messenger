@@ -175,7 +175,6 @@ func (u *User) Update() (*User, error) {
 	return u, nil
 }
 
-// scanBook reads a book from a sql.Row or sql.Rows
 func scanUser(s db.RowScanner) (*User, error) {
 
 	var (
@@ -246,9 +245,6 @@ func (u *User) Delete() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
-	// remove all user's tokens
-	db.DB.Delete("DELETE FROM tokens where user_id=?", u.Id)
 
 	return true, nil
 }
@@ -334,8 +330,6 @@ func LoginUser(email string, password string) (*Token, *User, error) {
 	row := db.DB.QueryRow("SELECT * FROM users WHERE email=?", email)
 
 	user, err := scanUser(row)
-
-
 
 	if err != nil {
 		return nil, nil, err

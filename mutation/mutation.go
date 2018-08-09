@@ -4,6 +4,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"messenger/model"
 	"errors"
+	"fmt"
 )
 
 var Mutation = graphql.NewObject(graphql.ObjectConfig{
@@ -185,6 +186,55 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				}
 				result := map[string]interface{}{
 					"success": success,
+				}
+
+				return result, err
+
+			},
+		},
+		"createMessage": &graphql.Field{
+			Type:        model.MessageType,
+			Description: "Create new message",
+			Args: graphql.FieldConfigArgument{
+				"group_id": &graphql.ArgumentConfig{
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: "",
+				},
+				"emoji": &graphql.ArgumentConfig{
+					Type:         graphql.Boolean,
+					DefaultValue: false,
+				},
+				"body": &graphql.ArgumentConfig{
+					Type: graphql.String,
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				auth := model.GetAuth(params)
+				if auth == nil {
+					return nil, errors.New("access denied")
+				}
+
+				userId := auth.UserId
+				groupId, ok := params.Args["group_id"].(int)
+
+				if !ok {
+
+					return nil, errors.New("invalid group id")
+
+				}
+				message := &model.Message{
+					UserId:  userId,
+					GroupId: int64(groupId),
+					Body:    params.Args["body"].(string),
+					Emoji:   params.Args["emoji"].(bool),
+				}
+
+				fmt.Println("messgae", message)
+				result, err := message.Create()
+
+				if err != nil {
+					return nil, err
 				}
 
 				return result, err

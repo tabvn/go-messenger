@@ -11,6 +11,7 @@ import (
 	"messenger/pubsub"
 	"messenger/db"
 	"fmt"
+	"strconv"
 )
 
 const (
@@ -91,10 +92,11 @@ func main() {
 	http.HandleFunc("/api", graphqlHandler)
 	http.HandleFunc("/ws", pubsub.WebSocketHandler)
 
+	const PORT = 3007
 
-	fmt.Println("Server is running on port 3001")
+	fmt.Println("Server is running on port:", PORT)
 
-	err := http.ListenAndServe(":3001", nil)
+	err := http.ListenAndServe(":"+strconv.Itoa(PORT), nil)
 	if err != nil {
 		panic(err)
 	}
