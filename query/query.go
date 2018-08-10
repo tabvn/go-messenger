@@ -137,5 +137,39 @@ var Query = graphql.NewObject(
 					return messages, err
 				},
 			},
+			"groups": &graphql.Field{
+				Type: graphql.NewList(model.GroupType),
+				Args: graphql.FieldConfigArgument{
+					"limit": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 50,
+					},
+					"skip": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
+				},
+				Description: "Get group list",
+				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+					limit := params.Args["limit"].(int)
+					skip := params.Args["skip"].(int)
+
+					var userId int64
+
+					auth := model.GetAuth(params)
+					if auth != nil {
+						userId = auth.UserId
+					}
+
+
+					fmt.Println("userId", userId)
+					result, err := model.Groups(userId, limit, skip)
+					if err != nil {
+						return nil, err
+					}
+					return result, err
+				},
+			},
 		},
 	})

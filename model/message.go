@@ -74,11 +74,9 @@ func (m *Message) Create() (*Message, error) {
 
 	for index, attachment := range m.Attachments {
 
-		q := `INSERT INTO attachments (user_id, message_id, name, original, type, size, created) VALUES (?, ?, ?, ?, ?, ?, ?)`
+		q := `INSERT INTO attachments (message_id, name, original, type, size) VALUES (?, ?, ?, ?, ?, ?, ?)`
 
-		attachment.Created = unixTime
-
-		attachmentId, err := db.DB.Insert(q, m.UserId, insertedId, attachment.Name, attachment.Original, attachment.Type, attachment.Size, attachment.Created)
+		attachmentId, err := db.DB.Insert(q, insertedId, attachment.Name, attachment.Original, attachment.Type, attachment.Size)
 
 		if err == nil {
 			attachment.Id = attachmentId
@@ -126,7 +124,6 @@ func scanMessage(rows *sql.Rows) ([] *Message, error) {
 		attachmentOriginal sql.NullString
 		attachmentType     sql.NullString
 		attachmentSize     sql.NullInt64
-		attachmentCreated  sql.NullInt64
 	)
 
 	var messages []*Message
@@ -134,7 +131,7 @@ func scanMessage(rows *sql.Rows) ([] *Message, error) {
 
 	for rows.Next() {
 
-		if err := rows.Scan(&id, &userId, &groupId, &body, &emoji, &created, &updated, &attachmentId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize, &attachmentCreated); err != nil {
+		if err := rows.Scan(&id, &userId, &groupId, &body, &emoji, &created, &updated, &attachmentId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize); err != nil {
 			fmt.Println("Scan message error", err)
 		}
 
@@ -143,12 +140,10 @@ func scanMessage(rows *sql.Rows) ([] *Message, error) {
 		if attachmentId.Int64 != 0 {
 			attachment = &Attachment{
 				Id:       attachmentId.Int64,
-				UserId:   userId,
 				Name:     attachmentName.String,
 				Original: attachmentOriginal.String,
 				Type:     attachmentType.String,
 				Size:     int(attachmentSize.Int64),
-				Created:  attachmentCreated.Int64,
 			}
 		}
 
@@ -182,11 +177,11 @@ func (m *Message) Load() (*Message, error) {
 
 	query := `
 		SELECT m.*, 
-		a.id, a.name, a.original, a.type, a.size, a.created
+		a.id, a.name, a.original, a.type, a.size
 		FROM messages AS m LEFT JOIN attachments as a 
 		ON m.id = a.message_id 
 		WHERE m.id=?
-		order by m.created DESC, a.created DESC 
+		order by m.created DESC, a.id DESC 
 		LIMIT ? OFFSET ?
 	`
 
@@ -209,10 +204,10 @@ func Messages(limit int, skip int) ([] *Message, error) {
 
 	query := `
 		SELECT m.id, m.user_id, m.group_id, m.body, m.emoji, m.created, m.updated, 
-		a.id, a.name, a.original, a.type, a.size, a.created
+		a.id, a.name, a.original, a.type, a.size
 		FROM messages AS m LEFT JOIN attachments as a 
 		ON m.id = a.message_id 
-		order by m.created DESC, a.created DESC 
+		order by m.created DESC 
 		LIMIT ? OFFSET ?
 	`
 
