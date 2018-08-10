@@ -140,6 +140,10 @@ var Query = graphql.NewObject(
 			"groups": &graphql.Field{
 				Type: graphql.NewList(model.GroupType),
 				Args: graphql.FieldConfigArgument{
+					"search": &graphql.ArgumentConfig{
+						Type:         graphql.String,
+						DefaultValue: "",
+					},
 					"user_id": &graphql.ArgumentConfig{
 						Type:         graphql.Int,
 						DefaultValue: 0,
@@ -156,6 +160,7 @@ var Query = graphql.NewObject(
 				Description: "Get group list",
 				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
+					search := params.Args["search"].(string)
 					limit := params.Args["limit"].(int)
 					skip := params.Args["skip"].(int)
 					uid, ok := params.Args["user_id"].(int)
@@ -170,10 +175,8 @@ var Query = graphql.NewObject(
 						userId = int64(uid)
 					}
 
-
-
 					fmt.Println("userId", userId)
-					result, err := model.Groups(userId, limit, skip)
+					result, err := model.Groups(search, userId, limit, skip)
 					if err != nil {
 						return nil, err
 					}

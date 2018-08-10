@@ -198,19 +198,40 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 	return groups, nil
 }
 
-func Groups(userId int64, limit int, skip int) ([]*Group, error) {
-
+func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) {
+	
 	query := `
 		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
 		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status FROM groups as g 
-		INNER JOIN members AS m ON m.group_id = g.id AND m.user_id = ? 
+		INNER JOIN members AS m ON m.group_id = g.id AND m.blocked = 0 AND m.user_id = ? 
 		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
 		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
 		LEFT JOIN attachments as a ON a.message_id = message.id ORDER BY message.id ASC LIMIT ? OFFSET ?
 	`
 
-	rows, err := db.DB.List(query, userId, limit, skip)
+	var rows *sql.Rows
+	var err error
+
+	if search == "" {
+		rows, err = db.DB.List(query, userId, limit, skip)
+	} else {
+
+		search = "%" + search + "%"
+		query = `
+		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
+		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
+		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status FROM groups as g 
+		INNER JOIN members AS m ON m.group_id = g.id AND m.blocked = 0 AND m.user_id = ? 
+		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
+		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
+		LEFT JOIN attachments as a ON a.message_id = message.id WHERE 
+		g.title like ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR MATCH(message.body) AGAINST(?) 
+		ORDER BY message.id ASC LIMIT ? OFFSET ?
+		`
+
+		rows, err = db.DB.List(query, userId, search, search, search, search, limit, skip)
+	}
 
 	result, err := scanGroup(rows)
 
