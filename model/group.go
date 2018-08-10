@@ -14,8 +14,8 @@ type Group struct {
 	Avatar   string `json:"avatar"`
 	Created  int64  `json:"created"`
 	Updated  int64  `json:"updated"`
-	Users    [] User
-	Messages [] Message
+	Users    [] *User
+	Messages [] *Message
 }
 
 var GroupType = graphql.NewObject(
@@ -122,12 +122,9 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 			// #1 find attachment
 			if attachment != nil {
 				for _, g := range groups {
-
-					for j, m := range g.Messages {
-
+					for _, m := range g.Messages {
 						if attachmentMessageId.Int64 == m.Id {
-							m.Attachments = append(m.Attachments, *attachment)
-							g.Messages[j] = m
+							m.Attachments = append(m.Attachments, attachment)
 						}
 
 					}
@@ -148,9 +145,9 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 			if message != nil && messageGroupId.Int64 == id {
 
 				if attachment != nil {
-					message.Attachments = append(message.Attachments, *attachment)
+					message.Attachments = append(message.Attachments, attachment)
 				}
-				group.Messages = append(group.Messages, *message)
+				group.Messages = append(group.Messages, message)
 			}
 			groups = append(groups, group)
 

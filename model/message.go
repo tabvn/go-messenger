@@ -16,8 +16,8 @@ type Message struct {
 	Emoji       bool   `json:"emoji"`
 	Created     int64  `json:"created"`
 	Updated     int64  `json:"updated"`
-	Attachments [] Attachment
-	Gifs        [] Gif
+	Attachments [] *Attachment
+	Gifs        [] *Gif
 }
 
 var MessageType = graphql.NewObject(
@@ -151,7 +151,7 @@ func scanMessage(rows *sql.Rows) ([] *Message, error) {
 
 		if message != nil && message.Id == id {
 			// exist so need append attachments
-			message.Attachments = append(message.Attachments, *attachment)
+			message.Attachments = append(message.Attachments, attachment)
 
 		} else {
 			message = &Message{
@@ -164,7 +164,7 @@ func scanMessage(rows *sql.Rows) ([] *Message, error) {
 				Updated: updated,
 			}
 			if attachment != nil {
-				message.Attachments = append(message.Attachments, *attachment)
+				message.Attachments = append(message.Attachments, attachment)
 			}
 			messages = append(messages, message)
 
