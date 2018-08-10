@@ -7,7 +7,7 @@
 #
 # Host: 127.0.0.1 (MySQL 5.6.40)
 # Database: messenger
-# Generation Time: 2018-08-10 16:07:29 +0000
+# Generation Time: 2018-08-10 16:21:22 +0000
 # ************************************************************
 
 
@@ -111,7 +111,7 @@ CREATE TABLE `members` (
   `blocked` tinyint(1) DEFAULT '0',
   `created` int(11) DEFAULT '0',
   PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
+  UNIQUE KEY `unique_index` (`user_id`,`group_id`),
   KEY `group_id` (`group_id`),
   CONSTRAINT `members_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `members_ibfk_2` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE CASCADE
@@ -153,8 +153,8 @@ CREATE TABLE `read_messages` (
   `message_id` int(11) unsigned DEFAULT '0',
   `created` int(11) DEFAULT '0',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_index` (`user_id`,`message_id`),
   KEY `message_id` (`message_id`),
-  KEY `user_id` (`user_id`),
   CONSTRAINT `read_messages_ibfk_2` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE,
   CONSTRAINT `read_messages_ibfk_3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -200,6 +200,7 @@ CREATE TABLE `users` (
   `created` int(11) DEFAULT NULL,
   `updated` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_email` (`email`),
   FULLTEXT KEY `fulltext` (`first_name`,`last_name`,`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

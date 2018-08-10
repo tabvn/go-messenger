@@ -19,7 +19,7 @@ type Gif struct {
 var GifType = graphql.NewObject(
 
 	graphql.ObjectConfig{
-		Name: "Attachment",
+		Name: "Gif",
 		Fields: graphql.Fields{
 			"id": &graphql.Field{
 				Type: graphql.Int,

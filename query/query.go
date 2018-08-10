@@ -137,6 +137,31 @@ var Query = graphql.NewObject(
 					return messages, err
 				},
 			},
+			"group": &graphql.Field{
+				Type: model.GroupType,
+				Args: graphql.FieldConfigArgument{
+
+					"id": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
+				},
+				Description: "Get group list",
+				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+					id, ok := params.Args["id"].(int)
+
+					if !ok {
+						return nil, errors.New("invalid group id")
+					}
+
+					result, err := model.Load(int64(id))
+
+					if err != nil {
+						return nil, err
+					}
+					return result, err
+				},
+			},
 			"groups": &graphql.Field{
 				Type: graphql.NewList(model.GroupType),
 				Args: graphql.FieldConfigArgument{

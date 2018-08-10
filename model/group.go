@@ -5,6 +5,7 @@ import (
 	"messenger/db"
 	"database/sql"
 	"fmt"
+	"errors"
 )
 
 type Group struct {
@@ -198,6 +199,33 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 	return groups, nil
 }
 
+func Load(id int64) (*Group, error) {
+
+	var rows *sql.Rows
+	query := `
+		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
+		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
+		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status FROM groups as g
+		INNER JOIN members AS m ON m.group_id = g.id AND m.blocked = 0 
+		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
+		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
+		LEFT JOIN attachments as a ON a.message_id = message.id WHERE g.id = ? LIMIT 1
+	`
+	rows, err := db.DB.List(query, id)
+
+	result, err := scanGroup(rows)
+
+	if len(result) < 1 {
+		return nil, errors.New("not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return result[0], nil
+
+}
+
 func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) {
 
 	var rows *sql.Rows
@@ -209,7 +237,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
 		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status FROM groups as g 
-		INNER JOIN members AS m ON m.group_id = g.id AND m.blocked = 0 AND m.user_id = ? 
+		INNER JOIN members AS m ON m.group_id = g.id AND m.blocked = 0 AND m.user_id =?
 		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
 		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
 		LEFT JOIN attachments as a ON a.message_id = message.id ORDER BY message.id ASC LIMIT ? OFFSET ?
