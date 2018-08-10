@@ -140,6 +140,10 @@ var Query = graphql.NewObject(
 			"groups": &graphql.Field{
 				Type: graphql.NewList(model.GroupType),
 				Args: graphql.FieldConfigArgument{
+					"user_id": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
 					"limit": &graphql.ArgumentConfig{
 						Type:         graphql.Int,
 						DefaultValue: 50,
@@ -154,13 +158,18 @@ var Query = graphql.NewObject(
 
 					limit := params.Args["limit"].(int)
 					skip := params.Args["skip"].(int)
+					uid, ok := params.Args["user_id"].(int)
+					auth := model.GetAuth(params)
 
 					var userId int64
-
-					auth := model.GetAuth(params)
 					if auth != nil {
 						userId = auth.UserId
 					}
+
+					if ok {
+						userId = int64(uid)
+					}
+
 
 
 					fmt.Println("userId", userId)
