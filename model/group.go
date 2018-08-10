@@ -199,8 +199,13 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 }
 
 func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) {
-	
-	query := `
+
+	var rows *sql.Rows
+	var err error
+	var query string
+
+	if search == "" {
+		query = `
 		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
 		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status FROM groups as g 
@@ -210,10 +215,6 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		LEFT JOIN attachments as a ON a.message_id = message.id ORDER BY message.id ASC LIMIT ? OFFSET ?
 	`
 
-	var rows *sql.Rows
-	var err error
-
-	if search == "" {
 		rows, err = db.DB.List(query, userId, limit, skip)
 	} else {
 

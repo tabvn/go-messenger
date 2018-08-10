@@ -224,6 +224,29 @@ func Messages(limit int, skip int) ([] *Message, error) {
 	return messages, nil
 }
 
+func UnreadMessages(userId int64, limit int, skip int) ([] *Message, error) {
+	query := `
+		SELECT m.id, m.user_id, m.group_id, m.body, m.emoji, m.created, m.updated, 
+		a.id, a.message_id, a.name, a.original, a.type, a.size
+		FROM messages AS m
+		LEFT JOIN attachments as a 
+		ON m.id = a.message_id 
+		WHERE m.id NOT IN (SELECT message_id FROM read_messages WHERE user_id = ?)
+		order by m.created DESC 
+		LIMIT ? OFFSET ?
+	`
+
+	rows, err := db.DB.List(query, userId, limit, skip)
+
+	messages, err := scanMessage(rows)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return messages, nil
+}
+
 func (m *Message) Delete() (bool, error) {
 
 	_, err := db.DB.Delete("DELETE FROM messages where id=?", m.Id)

@@ -183,5 +183,46 @@ var Query = graphql.NewObject(
 					return result, err
 				},
 			},
+			"unread": &graphql.Field{
+				Type: graphql.NewList(model.MessageType),
+				Args: graphql.FieldConfigArgument{
+					"user_id": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
+					"limit": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 50,
+					},
+					"skip": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
+				},
+				Description: "Get unread message",
+				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+					limit := params.Args["limit"].(int)
+					skip := params.Args["skip"].(int)
+					uid, ok := params.Args["user_id"].(int)
+					auth := model.GetAuth(params)
+
+					var userId int64
+					if auth != nil {
+						userId = auth.UserId
+					}
+
+					if ok {
+						userId = int64(uid)
+					}
+
+					fmt.Println("userId", userId)
+					result, err := model.UnreadMessages(userId, limit, skip)
+					if err != nil {
+						return nil, err
+					}
+					return result, err
+				},
+			},
 		},
 	})

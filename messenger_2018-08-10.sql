@@ -7,7 +7,7 @@
 #
 # Host: 127.0.0.1 (MySQL 5.6.40)
 # Database: messenger
-# Generation Time: 2018-08-09 14:14:52 +0000
+# Generation Time: 2018-08-10 16:07:29 +0000
 # ************************************************************
 
 
@@ -27,17 +27,13 @@ DROP TABLE IF EXISTS `attachments`;
 
 CREATE TABLE `attachments` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) unsigned DEFAULT '0',
   `message_id` int(11) unsigned DEFAULT '0',
   `name` varchar(255) DEFAULT NULL,
   `original` varchar(255) DEFAULT NULL,
   `type` varchar(50) DEFAULT NULL,
   `size` int(11) DEFAULT '0',
-  `created` int(11) DEFAULT '0',
   PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
   KEY `message_id` (`message_id`),
-  CONSTRAINT `attachments_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `attachments_ibfk_2` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -93,11 +89,12 @@ DROP TABLE IF EXISTS `groups`;
 CREATE TABLE `groups` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `title` varchar(50) DEFAULT NULL,
-  `avatar` varchar(255) DEFAULT NULL,
+  `avatar` varchar(255) DEFAULT '',
   `user_id` int(11) unsigned DEFAULT '0',
   `created` int(11) DEFAULT '0',
   `updated` int(11) DEFAULT '0',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  FULLTEXT KEY `fulltext` (`title`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -138,27 +135,28 @@ CREATE TABLE `messages` (
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   KEY `group_id` (`group_id`),
+  FULLTEXT KEY `fulltext` (`body`),
   CONSTRAINT `messages_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `messages_ibfk_2` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 
-# Dump of table reads
+# Dump of table read_messages
 # ------------------------------------------------------------
 
-DROP TABLE IF EXISTS `reads`;
+DROP TABLE IF EXISTS `read_messages`;
 
-CREATE TABLE `reads` (
+CREATE TABLE `read_messages` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) unsigned DEFAULT '0',
+  `user_id` int(11) unsigned DEFAULT NULL,
   `message_id` int(11) unsigned DEFAULT '0',
   `created` int(11) DEFAULT '0',
   PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
   KEY `message_id` (`message_id`),
-  CONSTRAINT `reads_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `reads_ibfk_2` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `read_messages_ibfk_2` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `read_messages_ibfk_3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -201,7 +199,8 @@ CREATE TABLE `users` (
   `about` longtext,
   `created` int(11) DEFAULT NULL,
   `updated` int(11) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  FULLTEXT KEY `fulltext` (`first_name`,`last_name`,`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
