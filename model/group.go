@@ -73,6 +73,13 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 		attachmentOriginal  sql.NullString
 		attachmentType      sql.NullString
 		attachmentSize      sql.NullInt64
+
+		uUserId       sql.NullInt64
+		uFirstName    sql.NullString
+		uLastName     sql.NullString
+		uAvatar       sql.NullString
+		uOnline       sql.NullBool
+		uCustomStatus sql.NullString
 	)
 
 	var groups []*Group
@@ -82,9 +89,12 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 
 		var message *Message
 		var attachment *Attachment
+		var user *User
 
 		if err := rows.Scan(&id, &userId, &title, &avatar, &created, &updated, &messageId, &messageUserId, &messageGroupId, &messageBody, &messageEmoji,
-			&messageCreated, &messageUpdated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize); err != nil {
+			&messageCreated, &messageUpdated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize,
+			&uUserId, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus,
+		); err != nil {
 			fmt.Println("Scan message error", err)
 		}
 
@@ -115,20 +125,46 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 			}
 
 		}
+		if uUserId.Int64 > 0 {
+			user = &User{
+				Id:           uUserId.Int64,
+				FirstName:    uFirstName.String,
+				LastName:     uLastName.String,
+				Avatar:       uAvatar.String,
+				Online:       uOnline.Bool,
+				CustomStatus: uCustomStatus.String,
+			}
+		}
 
 		if group != nil && group.Id == id {
 
 			// has group now find all message and insert to group
 			// #1 find attachment
-			if attachment != nil {
-				for _, g := range groups {
-					for _, m := range g.Messages {
-						if attachmentMessageId.Int64 == m.Id {
-							m.Attachments = append(m.Attachments, attachment)
-						}
 
+			for _, g := range groups {
+				for _, m := range g.Messages {
+					if attachment != nil && attachmentMessageId.Int64 == m.Id {
+						m.Attachments = append(m.Attachments, attachment)
+						break
+					}
+
+				}
+
+				// check if user in group
+				if user != nil {
+					hasUser := false
+
+					for _, u := range g.Users {
+						if u.Id == user.Id {
+							hasUser = true
+						}
+					}
+
+					if !hasUser {
+						g.Users = append(g.Users, user)
 					}
 				}
+
 			}
 
 		} else {
@@ -148,6 +184,10 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 					message.Attachments = append(message.Attachments, attachment)
 				}
 				group.Messages = append(group.Messages, message)
+
+			}
+			if user != nil {
+				group.Users = append(group.Users, user)
 			}
 			groups = append(groups, group)
 
@@ -161,7 +201,13 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 func Groups(userId int64, limit int, skip int) ([]*Group, error) {
 
 	query := `
-		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type, a.size FROM groups as g INNER JOIN members AS m ON m.group_id = g.id AND m.user_id = ?  LEFT JOIN messages as message ON message.group_id = g.id AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) LEFT JOIN attachments as a ON a.message_id = message.id ORDER BY message.id ASC LIMIT ? OFFSET ?
+		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
+		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
+		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status FROM groups as g 
+		INNER JOIN members AS m ON m.group_id = g.id AND m.user_id = ? 
+		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
+		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
+		LEFT JOIN attachments as a ON a.message_id = message.id ORDER BY message.id ASC LIMIT ? OFFSET ?
 	`
 
 	rows, err := db.DB.List(query, userId, limit, skip)
