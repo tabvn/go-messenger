@@ -5,6 +5,7 @@ import (
 	"messenger/model"
 	"errors"
 	"fmt"
+	"messenger/helper"
 )
 
 var Mutation = graphql.NewObject(graphql.ObjectConfig{
@@ -241,6 +242,42 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 			},
 		},
+		"markAsRead": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "Mark message as read",
+			Args: graphql.FieldConfigArgument{
+				"ids": &graphql.ArgumentConfig{
+					Type:         graphql.NewList(graphql.Int),
+					DefaultValue: []int{},
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				inputIds, ok := params.Args["ids"]
+
+				if !ok {
+					return nil, errors.New("invalid id")
+				}
+
+				var auth *model.Auth
+
+				auth = model.GetAuth(params)
+
+				if auth == nil {
+					return nil, errors.New("access denied")
+				}
+				ids := helper.GetIds(inputIds)
+
+				defer func() {
+					for _, id := range ids {
+						model.MarkMessageAsRead(id, auth.UserId)
+					}
+				}()
+
+				return true, nil
+
+			},
+		},
 
 		"deleteMessage": &graphql.Field{
 			Type:        graphql.Boolean,
@@ -257,16 +294,120 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					return nil, errors.New("invalid id")
 				}
 
+				mId := int64(id)
+
+				var auth *model.Auth
+
+				// allow super or authenticated user
+				secret := params.Context.Value("secret")
+				if secret == nil {
+					auth = model.GetAuth(params)
+					if auth == nil {
+						return nil, errors.New("access denied")
+					} else {
+						// let check if user has perm to delete a message
+
+						canDelete := model.UserCanDeleteMessage(auth.UserId, mId)
+						if !canDelete {
+							return nil, errors.New("access denied")
+						}
+					}
+				}
+
 				m := model.Message{
-					Id: int64(id),
+					Id: mId,
 				}
 
 				result, err := m.Delete()
 
 				if err != nil {
-					return nil, errors.New("an error deleting user or not found")
+					return nil, errors.New("error")
 				}
 				return result, err
+
+			},
+		},
+		"findOrCreateGroup": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "create group",
+			Args: graphql.FieldConfigArgument{
+				"user_ids": &graphql.ArgumentConfig{
+					Type: graphql.NewList(graphql.Int),
+				},
+				"title": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"avatar": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				userIdInput := params.Args["user_ids"]
+				title := params.Args["title"].(string)
+				avatar := params.Args["avatar"].(string)
+
+				userIds := helper.GetIds(userIdInput)
+
+				id, err := model.FindOrCreateGroup(userIds, title, avatar)
+
+				fmt.Println("Found", id, err)
+
+				return false, nil
+
+			},
+		},
+		"joinGroup": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "add user to group chat",
+			Args: graphql.FieldConfigArgument{
+				"user_id": &graphql.ArgumentConfig{
+					Type: graphql.NewNonNull(graphql.Int),
+				},
+				"group_id": &graphql.ArgumentConfig{
+					Type: graphql.NewNonNull(graphql.Int),
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				userId, ok := params.Args["user_id"].(int)
+				groupId, groupOk := params.Args["group_id"].(int)
+
+				if !ok {
+					return nil, errors.New("invalid id")
+				}
+				if ! groupOk {
+
+					return nil, errors.New("invalid group id")
+				}
+
+				var auth *model.Auth
+
+				// allow super or authenticated user
+				secret := params.Context.Value("secret")
+
+				uid := int64(userId)
+				gid := int64(groupId)
+
+				if secret == nil {
+					auth = model.GetAuth(params)
+					if auth == nil {
+						return nil, errors.New("access denied")
+					} else {
+						// let check if user has perm to delete a message
+						canJoin := model.CanJoinGroup(auth.UserId, uid, gid)
+
+						if !canJoin {
+							return nil, errors.New("access denied")
+						}
+					}
+				}
+
+				result := model.JoinGroup(uid, gid)
+
+				return result, nil
 
 			},
 		},

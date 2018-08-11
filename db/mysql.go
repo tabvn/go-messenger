@@ -152,6 +152,8 @@ func (db *Database) Get(table string, id int64) (*sql.Row, error) {
 }
 func (db *Database) FindOne(query string, args ...interface{}) (*sql.Row, error) {
 
+	println("args", args)
+
 	stmt, err := DB.Prepare(query)
 
 	if err != nil {

@@ -59,6 +59,9 @@ func GetAuth(params graphql.ResolveParams) (*Auth) {
 	return nil
 }
 
+
+
+
 func (token *Token) Create() (*Token, error) {
 
 	if token.Token == "" {

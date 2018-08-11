@@ -75,9 +75,16 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 		auth = r.URL.Query().Get("auth")
 	}
 
-	authentication, _ := model.VerifyToken(auth)
+	isSecret := model.CheckSecret(auth)
 
-	ctx := context.WithValue(context.Background(), "auth", authentication)
+	var ctx context.Context
+
+	if isSecret {
+		ctx = context.WithValue(context.Background(), "secret", isSecret)
+	} else {
+		authentication, _ := model.VerifyToken(auth)
+		ctx = context.WithValue(context.Background(), "auth", authentication)
+	}
 
 	result := schema.ExecuteQuery(ctx, p.Query, p.OperationName, schema.Schema)
 

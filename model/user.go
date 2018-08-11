@@ -13,6 +13,13 @@ import (
 	"database/sql"
 )
 
+const (
+	ONLINE  = "online"
+	BUSY    = "busy"
+	AWAY    = "away"
+	OFFLINE = "offline"
+)
+
 type User struct {
 	Id           int64  `json:"id"`
 	Uid          int64  `json:"uid"`
@@ -23,6 +30,7 @@ type User struct {
 	Avatar       string `json:"avatar"`
 	Online       bool   `json:"online"`
 	CustomStatus string `json:"custom_status"`
+	Status       string `json:"status"`
 	Location     string `json:"location"`
 	Work         string `json:"work"`
 	School       string `json:"school"`
@@ -56,10 +64,7 @@ var UserType = graphql.NewObject(
 			"avatar": &graphql.Field{
 				Type: graphql.String,
 			},
-			"online": &graphql.Field{
-				Type: graphql.Boolean,
-			},
-			"custom_status": &graphql.Field{
+			"status": &graphql.Field{
 				Type: graphql.String,
 			},
 			"location": &graphql.Field{
@@ -178,6 +183,22 @@ func (u *User) Update() (*User, error) {
 	return u, nil
 }
 
+func UserStatus(online bool, customStatus string) (string) {
+
+	var onlineStatus string
+
+	if online {
+		onlineStatus = ONLINE
+	} else {
+		onlineStatus = OFFLINE
+	}
+
+	if online && (customStatus == ONLINE || customStatus == OFFLINE || customStatus == BUSY || customStatus == AWAY) {
+		onlineStatus = customStatus
+	}
+
+	return onlineStatus
+}
 func scanUser(s db.RowScanner) (*User, error) {
 
 	var (
@@ -204,6 +225,8 @@ func scanUser(s db.RowScanner) (*User, error) {
 		return nil, err
 	}
 
+	onlineStatus := UserStatus(online.Bool, customStatus.String)
+
 	user := &User{
 		Id:           id,
 		Uid:          uid,
@@ -213,6 +236,7 @@ func scanUser(s db.RowScanner) (*User, error) {
 		Password:     password.String,
 		Avatar:       avatar.String,
 		Online:       online.Bool,
+		Status:       onlineStatus,
 		CustomStatus: customStatus.String,
 		Location:     location.String,
 		Work:         work.String,

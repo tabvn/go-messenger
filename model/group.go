@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"fmt"
 	"errors"
+	"messenger/helper"
+	"strconv"
 )
 
 type Group struct {
@@ -140,6 +142,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 				Avatar:       uAvatar.String,
 				Online:       uOnline.Bool,
 				CustomStatus: uCustomStatus.String,
+				Status:       UserStatus(uOnline.Bool, uCustomStatus.String),
 			}
 		}
 
@@ -226,14 +229,16 @@ func Load(id int64, userId int64) (*Group, error) {
 		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
 		(SELECT COUNT(DISTINCT cm.id) 
         FROM messages cm WHERE cm.group_id = g.id AND cm.id NOT IN (SELECT message_id FROM read_messages WHERE message_id = cm.id  AND user_id =? )
-       ) as unread
+       ) as unread,
+		r.id as mread
 		FROM groups as g 
 		INNER JOIN members AS m ON m.group_id = g.id
 		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
 		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
+		LEFT JOIN read_messages as r ON r.message_id = message.id AND r.user_id =?
 		LEFT JOIN attachments as a ON a.message_id = message.id WHERE g.id = ?
 	`
-	rows, err := db.DB.List(query, userId, id)
+	rows, err := db.DB.List(query, userId, userId, id)
 
 	result, err := scanGroup(rows)
 
@@ -307,5 +312,99 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 	}
 
 	return result, nil
+
+}
+
+func CanJoinGroup(authorId, userId, groupId int64) (bool) {
+
+	// we are not allow self join
+
+	if authorId == userId {
+		return false
+	}
+	query := ` SELECT COUNT(m.user_id) as count FROM groups as g  INNER JOIN members as m ON m.group_id = g.id WHERE g.id = ? AND m.user_id = ?
+				
+	`
+
+	row, err := db.DB.FindOne(query, groupId, authorId)
+
+	if err != nil {
+		return false
+	}
+
+	var count int
+
+	if row.Scan(&count) != nil {
+		return false
+	}
+
+	if count > 0 {
+
+		return true
+	}
+
+	return false
+}
+
+func JoinGroup(userId, groupId int64) (bool) {
+
+	q := `INSERT INTO members (user_id, group_id, blocked, created) VALUES (?, ?, ?, ?)`
+
+	insertedId, err := db.DB.Insert(q, userId, groupId, 0, helper.GetUnixTimestamp())
+
+	fmt.Print("join", insertedId, err)
+	if err != nil {
+		return false
+	}
+
+	if insertedId > 0 {
+		return true
+	}
+	return false
+}
+
+func FindOrCreateGroup(userIds [] int64, title, avatar string) (int64, error) {
+
+	// find group with all members
+
+	inArrString := ""
+
+	for _, u := range userIds {
+
+		if inArrString == "" {
+			inArrString += strconv.Itoa(int(u))
+		} else {
+			inArrString += ", " + strconv.Itoa(int(u))
+		}
+
+	}
+
+	inArrString += ""
+	total := len(userIds)
+	findQuery := fmt.Sprintf(`select g.id,
+	(SELECT COUNT(DISTINCT mb.id) 
+	FROM members mb WHERE mb.group_id = g.id) as total
+	from members as m
+	INNER JOIN groups as g ON m.group_id = g.id
+	where m.user_id in (%s)
+	group by m.group_id
+	having count(distinct m.user_id) = ? AND total = ?`, inArrString)
+	row, err := db.DB.FindOne(findQuery, total, total)
+	var (
+		scanGroupId sql.NullInt64
+		scanTotal   sql.NullInt64
+	)
+
+	fmt.Println("err", err, inArrString, total, findQuery, )
+
+	if row.Scan(&scanGroupId, &scanTotal) != nil {
+		fmt.Println("scan error")
+
+		return 0, errors.New("unknown error")
+	}
+
+	fmt.Println("group id", scanGroupId, scanTotal)
+
+	return scanGroupId.Int64, nil
 
 }

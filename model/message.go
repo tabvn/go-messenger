@@ -6,6 +6,7 @@ import (
 	"messenger/db"
 	"database/sql"
 	"fmt"
+	"messenger/helper"
 )
 
 type Message struct {
@@ -263,4 +264,37 @@ func (m *Message) Delete() (bool, error) {
 	}
 
 	return true, nil
+}
+
+func UserCanDeleteMessage(userId, id int64) (bool) {
+
+	q := `SELECT COUNT(*) as c FROM messages WHERE id =? AND user_id =?`
+
+	row, err := db.DB.FindOne(q, id, userId)
+
+	if err != nil {
+		return false
+	}
+
+	var count sql.NullInt64
+
+	if row.Scan(&count) != nil {
+		return false
+	}
+
+	if count.Int64 > 0 {
+		return true
+	}
+
+	return false
+}
+
+func MarkMessageAsRead(id int64, userId int64) (error) {
+
+	q := `INSERT INTO read_messages (message_id, user_id, created) VALUES (?, ?, ?)`
+
+	fmt.Println("begin insert read")
+	_, err := db.DB.Insert(q, id, userId, helper.GetUnixTimestamp())
+
+	return err
 }

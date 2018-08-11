@@ -56,14 +56,28 @@ var Query = graphql.NewObject(
 				},
 				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
-					auth := model.GetAuth(params)
+					var auth *model.Auth
 
-					fmt.Println("Auth", auth)
 
 					limit := params.Args["limit"].(int)
 					skip := params.Args["skip"].(int)
 
+					// allow super or authenticated user
+					secret := params.Context.Value("secret")
+					if secret == nil {
+						auth = model.GetAuth(params)
+						if auth == nil {
+							return nil, errors.New("access denied")
+						}
+					}
+
 					users, err := model.Users(limit, skip)
+
+					if secret == nil {
+						for _, u := range users {
+							u.Email = ""
+						}
+					}
 
 					if err != nil {
 						return nil, err
