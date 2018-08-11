@@ -20,6 +20,10 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					Type:         graphql.String,
 					DefaultValue: "",
 				},
+				"uid": &graphql.ArgumentConfig{
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
 				"last_name": &graphql.ArgumentConfig{
 					Type:         graphql.String,
 					DefaultValue: "",
@@ -37,7 +41,16 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					FirstName: params.Args["first_name"].(string),
 					LastName:  params.Args["last_name"].(string),
 					Email:     params.Args["email"].(string),
+					Uid:       int64(params.Args["uid"].(int)),
 					Password:  params.Args["password"].(string),
+				}
+
+				// only allow secret key to create user
+				secret := params.Context.Value("secret")
+
+				if secret == nil {
+
+					return nil, errors.New("access denied")
 				}
 
 				result, err := user.Create()
@@ -79,6 +92,25 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				if !ok {
 					return nil, errors.New("invalid id")
 				}
+
+				secret := params.Context.Value("secret")
+				var auth *model.Auth
+
+				if secret == nil {
+
+					auth = model.GetAuth(params)
+
+					if auth == nil {
+						return nil, errors.New("access denied")
+					} else {
+						if int64(id) != auth.UserId {
+							// if not super admin only allow self edit
+							return nil, errors.New("access denied")
+						}
+					}
+
+				}
+
 				user := model.User{
 					Id:        int64(id),
 					FirstName: params.Args["first_name"].(string),
@@ -110,6 +142,13 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				id, ok := params.Args["id"].(int)
 				if !ok {
 					return nil, errors.New("invalid id")
+				}
+
+				secret := params.Context.Value("secret")
+
+				if secret == nil {
+
+					return nil, errors.New("access denied")
 				}
 
 				user := model.User{
@@ -328,7 +367,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			},
 		},
 		"findOrCreateGroup": &graphql.Field{
-			Type:        graphql.Boolean,
+			Type:        model.GroupType,
 			Description: "create group",
 			Args: graphql.FieldConfigArgument{
 				"user_ids": &graphql.ArgumentConfig{
@@ -351,11 +390,38 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 				userIds := helper.GetIds(userIdInput)
 
-				id, err := model.FindOrCreateGroup(userIds, title, avatar)
+				auth := model.GetAuth(params)
 
-				fmt.Println("Found", id, err)
+				if auth == nil {
+					return nil, errors.New("access denied")
+				}
 
-				return false, nil
+				var hasAuthorInList = false
+
+				for _, id := range userIds {
+					if id == auth.UserId {
+						hasAuthorInList = true
+						break
+					}
+				}
+
+				if !hasAuthorInList {
+					userIds = append(userIds, auth.UserId)
+				}
+
+				group, err := model.FindOrCreateGroup(auth.UserId, userIds, title, avatar)
+
+				if err != nil {
+					return nil, errors.New("error")
+				}
+
+				fmt.Println("Found", group, err)
+
+				if group == nil {
+					return nil, nil
+				}
+
+				return *group, nil
 
 			},
 		},
@@ -408,6 +474,63 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				result := model.JoinGroup(uid, gid)
 
 				return result, nil
+
+			},
+		},
+		"leftGroup": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "left group chat",
+			Args: graphql.FieldConfigArgument{
+				"user_id": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 0,
+				},
+				"group_id": &graphql.ArgumentConfig{
+					Type: graphql.NewNonNull(graphql.Int),
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				userId, ok := params.Args["user_id"].(int)
+				groupId, groupOk := params.Args["group_id"].(int)
+
+				if !ok {
+					return nil, errors.New("invalid id")
+				}
+				if ! groupOk {
+
+					return nil, errors.New("invalid group id")
+				}
+
+				var auth *model.Auth
+
+				// allow super or authenticated user
+				secret := params.Context.Value("secret")
+
+				uid := int64(userId)
+				gid := int64(groupId)
+
+				if secret == nil {
+					auth = model.GetAuth(params)
+					if auth == nil {
+						return nil, errors.New("access denied")
+					} else {
+
+						// if not super admin only accept userId from auth request
+
+						uid = auth.UserId
+
+					}
+				}
+
+				_, err := model.LeftGroup(uid, gid)
+
+				if err != nil {
+					fmt.Println("Left group err", err)
+					return false, errors.New("not found")
+				}
+
+				return true, nil
 
 			},
 		},

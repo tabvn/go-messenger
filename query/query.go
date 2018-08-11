@@ -58,7 +58,6 @@ var Query = graphql.NewObject(
 
 					var auth *model.Auth
 
-
 					limit := params.Args["limit"].(int)
 					skip := params.Args["skip"].(int)
 
@@ -199,8 +198,7 @@ var Query = graphql.NewObject(
 					if auth != nil {
 						userId = auth.UserId
 					}
-					result, err := model.Load(int64(id), userId)
-
+					result, err := model.LoadGroup(int64(id), userId)
 					if err != nil {
 						return nil, err
 					}

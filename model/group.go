@@ -84,6 +84,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 		attachmentSize      sql.NullInt64
 
 		uUserId       sql.NullInt64
+		uid           sql.NullInt64
 		uFirstName    sql.NullString
 		uLastName     sql.NullString
 		uAvatar       sql.NullString
@@ -102,7 +103,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 
 		if err := rows.Scan(&id, &userId, &title, &avatar, &created, &updated, &messageId, &messageUserId, &messageGroupId, &messageBody, &messageEmoji,
 			&messageCreated, &messageUpdated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize,
-			&uUserId, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &unread, &messageIsRead,
+			&uUserId, &uid, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &unread, &messageIsRead,
 		);
 			err != nil {
 			fmt.Println("Scan message error", err)
@@ -137,6 +138,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 		if uUserId.Int64 > 0 {
 			user = &User{
 				Id:           uUserId.Int64,
+				Uid:          uid.Int64,
 				FirstName:    uFirstName.String,
 				LastName:     uLastName.String,
 				Avatar:       uAvatar.String,
@@ -220,13 +222,13 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 	return groups, nil
 }
 
-func Load(id int64, userId int64) (*Group, error) {
+func LoadGroup(id int64, userId int64) (*Group, error) {
 
 	var rows *sql.Rows
 	query := `
 		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
-		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
+		a.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
 		(SELECT COUNT(DISTINCT cm.id) 
         FROM messages cm WHERE cm.group_id = g.id AND cm.id NOT IN (SELECT message_id FROM read_messages WHERE message_id = cm.id  AND user_id =? )
        ) as unread,
@@ -263,7 +265,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		query = `
 		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
-		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
+		a.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
 		(SELECT COUNT(DISTINCT cm.id) 
         FROM messages cm WHERE cm.group_id = g.id AND cm.id NOT IN (SELECT message_id FROM read_messages WHERE message_id = cm.id  AND user_id =? )
        ) as unread,
@@ -286,7 +288,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		query = `
 		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
-		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
+		a.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
 		(SELECT COUNT(DISTINCT cm.id) 
         FROM messages cm WHERE cm.group_id = g.id AND cm.id NOT IN (SELECT message_id FROM read_messages WHERE message_id = cm.id  AND user_id =? )
        ) as unread,
@@ -363,7 +365,15 @@ func JoinGroup(userId, groupId int64) (bool) {
 	return false
 }
 
-func FindOrCreateGroup(userIds [] int64, title, avatar string) (int64, error) {
+func LeftGroup(userId, groupId int64) (int64, error) {
+
+	q := `DELETE FROM members WHERE user_id = ? AND group_id =?`
+
+	result, err := db.DB.Delete(q, userId, groupId)
+	return result, err
+}
+
+func FindOrCreateGroup(requestUserId int64, userIds [] int64, title, avatar string) (*Group, error) {
 
 	// find group with all members
 
@@ -390,21 +400,32 @@ func FindOrCreateGroup(userIds [] int64, title, avatar string) (int64, error) {
 	group by m.group_id
 	having count(distinct m.user_id) = ? AND total = ?`, inArrString)
 	row, err := db.DB.FindOne(findQuery, total, total)
+
+	if err != nil {
+		return nil, err
+	}
+
 	var (
 		scanGroupId sql.NullInt64
 		scanTotal   sql.NullInt64
 	)
 
-	fmt.Println("err", err, inArrString, total, findQuery, )
+	scanErr := row.Scan(&scanGroupId, &scanTotal)
 
-	if row.Scan(&scanGroupId, &scanTotal) != nil {
-		fmt.Println("scan error")
-
-		return 0, errors.New("unknown error")
+	if scanErr != nil && scanErr != sql.ErrNoRows {
+		return nil, scanErr
 	}
 
-	fmt.Println("group id", scanGroupId, scanTotal)
+	if scanGroupId.Int64 > 0 {
+		// group is exist so load group and return
+		group, err := LoadGroup(scanGroupId.Int64, requestUserId)
+		if err != nil {
+			return nil, err
+		}
 
-	return scanGroupId.Int64, nil
+		return group, nil
+	}
+
+	return nil, nil
 
 }

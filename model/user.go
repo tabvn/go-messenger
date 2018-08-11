@@ -136,12 +136,12 @@ func (u *User) Create() (*User, error) {
 		return nil, e
 	}
 
-	query := `INSERT INTO users (first_name, last_name, email, password, created, updated) VALUES (?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO users (first_name, last_name, email, password, created, updated) VALUES (?,?, ?, ?, ?, ?, ?)`
 	currentTime := time.Now()
 	u.Created = currentTime.Unix()
 	u.Updated = currentTime.Unix()
 
-	result, err := db.DB.Insert(query, u.FirstName, u.LastName, u.Email, u.Password, u.Created, u.Updated)
+	result, err := db.DB.Insert(query, u.Uid, u.FirstName, u.LastName, u.Email, u.Password, u.Created, u.Updated)
 
 	if err != nil {
 		return nil, err
