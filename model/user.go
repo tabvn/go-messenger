@@ -53,6 +53,9 @@ var UserType = graphql.NewObject(
 			"password": &graphql.Field{
 				Type: graphql.String,
 			},
+			"avatar": &graphql.Field{
+				Type: graphql.String,
+			},
 			"online": &graphql.Field{
 				Type: graphql.Boolean,
 			},

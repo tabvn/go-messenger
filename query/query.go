@@ -154,7 +154,14 @@ var Query = graphql.NewObject(
 						return nil, errors.New("invalid group id")
 					}
 
-					result, err := model.Load(int64(id))
+					var userId int64
+
+					auth := model.GetAuth(params)
+
+					if auth != nil {
+						userId = auth.UserId
+					}
+					result, err := model.Load(int64(id), userId)
 
 					if err != nil {
 						return nil, err

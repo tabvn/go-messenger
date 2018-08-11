@@ -17,6 +17,7 @@ type Group struct {
 	Updated  int64  `json:"updated"`
 	Users    [] *User
 	Messages [] *Message
+	Unread   int64  `json:"unread"`
 }
 
 var GroupType = graphql.NewObject(
@@ -48,6 +49,9 @@ var GroupType = graphql.NewObject(
 			"messages": &graphql.Field{
 				Type: graphql.NewList(MessageType),
 			},
+			"unread": &graphql.Field{
+				Type: graphql.Int,
+			},
 		},
 	},
 )
@@ -61,6 +65,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 		avatar              sql.NullString
 		created             int64
 		updated             int64
+		unread              int64
 		messageId           sql.NullInt64
 		messageUserId       sql.NullInt64
 		messageGroupId      sql.NullInt64
@@ -94,7 +99,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 
 		if err := rows.Scan(&id, &userId, &title, &avatar, &created, &updated, &messageId, &messageUserId, &messageGroupId, &messageBody, &messageEmoji,
 			&messageCreated, &messageUpdated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize,
-			&uUserId, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus,
+			&uUserId, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &unread,
 		); err != nil {
 			fmt.Println("Scan message error", err)
 		}
@@ -143,20 +148,32 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 			// #1 find attachment
 
 			for _, g := range groups {
+
 				for _, m := range g.Messages {
-					if attachment != nil && attachmentMessageId.Int64 == m.Id {
+
+					hasAttachment := false
+
+					for _, a := range m.Attachments {
+
+						if a.Id == attachmentId.Int64 {
+							hasAttachment = true
+						}
+					}
+
+					if attachment != nil && attachmentMessageId.Int64 == m.Id && !hasAttachment {
 						m.Attachments = append(m.Attachments, attachment)
-						break
 					}
 
 				}
 
 				// check if user in group
-				if user != nil {
+				if uUserId.Valid {
 					hasUser := false
 
 					for _, u := range g.Users {
-						if u.Id == user.Id {
+
+						fmt.Println("user", user.Id, uUserId)
+						if u.Id == uUserId.Int64 {
 							hasUser = true
 						}
 					}
@@ -175,6 +192,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 				UserId:  userId,
 				Title:   title.String,
 				Avatar:  avatar.String,
+				Unread:  unread,
 				Created: created,
 				Updated: updated,
 			}
@@ -199,19 +217,24 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 	return groups, nil
 }
 
-func Load(id int64) (*Group, error) {
+func Load(id int64, userId int64) (*Group, error) {
 
+	fmt.Println("a", userId)
 	var rows *sql.Rows
 	query := `
 		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
-		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status FROM groups as g
-		INNER JOIN members AS m ON m.group_id = g.id AND m.blocked = 0 
+		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
+		(SELECT COUNT(DISTINCT cm.id) 
+        FROM messages cm WHERE cm.group_id = g.id AND cm.id NOT IN (SELECT message_id FROM read_messages WHERE message_id = cm.id  AND user_id =? )
+       ) as unread
+		FROM groups as g 
+		INNER JOIN members AS m ON m.group_id = g.id
 		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
 		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
-		LEFT JOIN attachments as a ON a.message_id = message.id WHERE g.id = ? LIMIT 1
+		LEFT JOIN attachments as a ON a.message_id = message.id WHERE g.id = ?
 	`
-	rows, err := db.DB.List(query, id)
+	rows, err := db.DB.List(query, userId, id)
 
 	result, err := scanGroup(rows)
 
@@ -236,30 +259,43 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		query = `
 		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
-		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status FROM groups as g 
-		INNER JOIN members AS m ON m.group_id = g.id AND m.blocked = 0 AND m.user_id =?
+		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
+		(SELECT COUNT(DISTINCT cm.id) 
+        FROM messages cm WHERE cm.group_id = g.id AND cm.id NOT IN (SELECT message_id FROM read_messages WHERE message_id = cm.id  AND user_id =? )
+       ) as unread
+		FROM groups as g 
+		INNER JOIN members AS m ON m.group_id = g.id
 		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
 		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
-		LEFT JOIN attachments as a ON a.message_id = message.id ORDER BY message.id ASC LIMIT ? OFFSET ?
+		LEFT JOIN attachments as a ON a.message_id = message.id INNER JOIN (SELECT gr.id FROM groups as gr INNER JOIN members as mb ON gr.id = mb.group_id AND mb.blocked = 0 
+		AND mb.user_id = ? INNER JOIN messages as msg ON msg.group_id = gr.id GROUP BY gr.id ORDER BY msg.id DESC LIMIT ? OFFSET ?) as grj ON grj.id = g.id
 	`
 
-		rows, err = db.DB.List(query, userId, limit, skip)
+		rows, err = db.DB.List(query, userId, userId, limit, skip)
 	} else {
 
 		search = "%" + search + "%"
 		query = `
 		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
-		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status FROM groups as g 
-		INNER JOIN members AS m ON m.group_id = g.id AND m.blocked = 0 AND m.user_id = ? 
+		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
+		(SELECT COUNT(DISTINCT cm.id) 
+        FROM messages cm WHERE cm.group_id = g.id AND cm.id NOT IN (SELECT message_id FROM read_messages WHERE message_id = cm.id AND user_id =?)
+       ) as unread
+		FROM groups as g 
+		INNER JOIN members AS m ON m.group_id = g.id AND m.blocked = 0
 		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
 		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
-		LEFT JOIN attachments as a ON a.message_id = message.id WHERE 
+		LEFT JOIN attachments as a ON a.message_id = message.id 
+		INNER JOIN 
+		(SELECT gr.id FROM groups as gr 
+		INNER JOIN members as mb ON gr.id = mb.group_id AND mb.blocked = 0 AND mb.user_id = ? 
+		INNER JOIN messages as msg ON msg.group_id = gr.id GROUP BY gr.id ORDER BY msg.id DESC LIMIT ? OFFSET ?) as grj ON grj.id = g.id
 		g.title like ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR MATCH(message.body) AGAINST(?) 
-		ORDER BY message.id ASC LIMIT ? OFFSET ?
+		ORDER BY message.id DESC
 		`
 
-		rows, err = db.DB.List(query, userId, search, search, search, search, limit, skip)
+		rows, err = db.DB.List(query, userId, userId, search, search, search, search, limit, skip)
 	}
 
 	result, err := scanGroup(rows)
