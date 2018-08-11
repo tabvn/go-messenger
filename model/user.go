@@ -119,13 +119,13 @@ func CheckPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
-func (u *User) Create() (*User, error) {
+func (u *User) Create() (error) {
 
-	u, validateError := u.validateCreate()
+	validateError := u.validateCreate()
 
 	if validateError != nil {
 
-		return nil, validateError
+		return validateError
 	}
 
 	// generate password
@@ -133,54 +133,104 @@ func (u *User) Create() (*User, error) {
 	u.Password = password
 
 	if e != nil {
-		return nil, e
+		return e
 	}
 
-	query := `INSERT INTO users (first_name, last_name, email, password, created, updated) VALUES (?,?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO users (uid, first_name, last_name, email, avatar , password, created, updated) VALUES (?,?, ?, ?, ?, ?, ?, ?)`
 	currentTime := time.Now()
 	u.Created = currentTime.Unix()
 	u.Updated = currentTime.Unix()
 
-	result, err := db.DB.Insert(query, u.Uid, u.FirstName, u.LastName, u.Email, u.Password, u.Created, u.Updated)
+	result, err := db.DB.Insert(query, u.Uid, u.FirstName, u.LastName, u.Email, u.Avatar, u.Password, u.Created, u.Updated)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	u.Id = result
+
 	u.Password = ""
 
-	return u, err
+	return err
 }
 
-func (u *User) Update() (*User, error) {
+func (u *User) Update() (error) {
+
+	fmt.Println("update", u)
 
 	currentTime := time.Now()
 	u.Updated = currentTime.Unix()
 
 	if u.Password == "" {
-		query := `UPDATE users SET first_name=?, last_name=?, email=?, updated=? WHERE id = ?`
-		_, err := db.DB.Update(query, u.FirstName, u.LastName, u.Email, u.Updated, u.Id)
+		query := `UPDATE users SET first_name=?, last_name=?, email=?, avatar =?, updated=? WHERE id = ?`
+		_, err := db.DB.Update(query, u.FirstName, u.LastName, u.Email, u.Avatar, u.Updated, u.Id)
 
 		if err != nil {
-			return nil, err
+			return err
 		}
 	} else {
-		query := `UPDATE users SET first_name=?, last_name=?, email=?, password=?, updated=? WHERE id = ?`
+		query := `UPDATE users SET first_name=?, last_name=?, email=?, password=?, avatar =?, updated=? WHERE id = ?`
 		password, err := HashPassword(u.Password)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		_, updateErr := db.DB.Update(query, u.FirstName, u.LastName, u.Email, password, u.Updated, u.Id)
+		_, updateErr := db.DB.Update(query, u.FirstName, u.LastName, u.Email, password, u.Avatar, u.Updated, u.Id)
 
 		if updateErr != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	u.Password = ""
 
-	return u, nil
+	return nil
+}
+
+func (u *User) CreateOrUpdate() (error) {
+
+	// let find if user exist
+	findQuery := `SELECT id, COUNT(*) as c FROM users WHERE uid = ?`
+
+	row, err := db.DB.FindOne(findQuery, u.Uid)
+	if err != nil {
+		return err
+	}
+	var (
+		id    sql.NullInt64
+		count int64
+	)
+
+	scanErr := row.Scan(&id, &count)
+
+	if scanErr != nil {
+		return scanErr
+	}
+
+	if count > 0 {
+		// found user exist do update
+		u.Id = id.Int64
+
+		updateErr := u.Update()
+		if updateErr != nil {
+			return updateErr
+		}
+
+		return nil
+
+	} else {
+
+		// do create
+		if u.Password == "" {
+			u.Password = helper.GenerateID()
+		}
+		createErr := u.Create()
+
+		if createErr != nil {
+			return createErr
+		}
+	}
+
+	return nil
 }
 
 func UserStatus(online bool, customStatus string) (string) {
@@ -308,30 +358,30 @@ func VerifyToken(token string) (*Auth, error) {
 	return auth, err
 
 }
-func (u *User) validateCreate() (*User, error) {
+func (u *User) validateCreate() (error) {
 
 	var err error = nil
 
 	// Email validation
 	if u.Email == "" {
 		err = errors.New("email is required")
-		return nil, err
+		return err
 	}
 
 	u.Email = strings.ToLower(u.Email)
 	err = helper.ValidateEmail(u.Email)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	count, countErr := db.DB.Count("SELECT COUNT(*) FROM users WHERE email=?", u.Email)
 
 	if countErr != nil {
-		return nil, errors.New("unable validate email")
+		return errors.New("unable validate email")
 	}
 	if count > 0 {
-		return nil, errors.New("email already exist")
+		return errors.New("email already exist")
 	}
 
 	// trim space
@@ -341,15 +391,15 @@ func (u *User) validateCreate() (*User, error) {
 	// Password validation
 	if u.Password == "" {
 		err = errors.New("password is required")
-		return nil, err
+		return err
 	}
 
 	if len(u.Password) < 6 {
 		err = errors.New("password must be of minimum 6 characters length")
-		return nil, err
+		return err
 	}
 
-	return u, err
+	return err
 }
 
 func LoginUser(email string, password string) (*Token, *User, error) {

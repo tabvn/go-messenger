@@ -28,6 +28,10 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					Type:         graphql.String,
 					DefaultValue: "",
 				},
+				"avatar": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
 				"email": &graphql.ArgumentConfig{
 					Type: graphql.NewNonNull(graphql.String),
 				},
@@ -40,6 +44,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				user := &model.User{
 					FirstName: params.Args["first_name"].(string),
 					LastName:  params.Args["last_name"].(string),
+					Avatar:    params.Args["avatar"].(string),
 					Email:     params.Args["email"].(string),
 					Uid:       int64(params.Args["uid"].(int)),
 					Password:  params.Args["password"].(string),
@@ -53,15 +58,73 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					return nil, errors.New("access denied")
 				}
 
-				result, err := user.Create()
+				err := user.Create()
 
 				if err != nil {
 					return nil, err
 				}
 
-				result.Password = ""
+				user.Password = ""
 
-				return result, err
+				return user, err
+
+			},
+		},
+		"createOrUpdateUser": &graphql.Field{
+			Type:        model.UserType,
+			Description: "Create or update user",
+			Args: graphql.FieldConfigArgument{
+				"uid": &graphql.ArgumentConfig{
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+				"first_name": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"last_name": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"avatar": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"email": &graphql.ArgumentConfig{
+					Type: graphql.NewNonNull(graphql.String),
+				},
+				"password": &graphql.ArgumentConfig{
+					Type: graphql.NewNonNull(graphql.String),
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				user := &model.User{
+					FirstName: params.Args["first_name"].(string),
+					LastName:  params.Args["last_name"].(string),
+					Avatar:    params.Args["avatar"].(string),
+					Email:     params.Args["email"].(string),
+					Uid:       int64(params.Args["uid"].(int)),
+					Password:  params.Args["password"].(string),
+				}
+
+				// only allow secret key to create user
+				secret := params.Context.Value("secret")
+
+				if secret == nil {
+
+					return nil, errors.New("access denied")
+				}
+
+				err := user.CreateOrUpdate()
+
+				if err != nil {
+					return nil, err
+				}
+
+				user.Password = ""
+
+				return user, err
 
 			},
 		},
@@ -77,7 +140,12 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					Type: graphql.String,
 				},
 				"last_name": &graphql.ArgumentConfig{
-					Type: graphql.String,
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"avatar": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
 				},
 				"email": &graphql.ArgumentConfig{
 					Type: graphql.NewNonNull(graphql.String),
@@ -111,20 +179,21 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 				}
 
-				user := model.User{
+				user := &model.User{
 					Id:        int64(id),
 					FirstName: params.Args["first_name"].(string),
 					LastName:  params.Args["last_name"].(string),
+					Avatar:    params.Args["avatar"].(string),
 					Email:     params.Args["email"].(string),
 					Password:  params.Args["password"].(string),
 				}
 
-				result, err := user.Update()
+				err := user.Update()
 
 				if err != nil {
 					return nil, err
 				}
-				return result, err
+				return user, err
 
 			},
 		},
