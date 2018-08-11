@@ -18,6 +18,7 @@ type Message struct {
 	Updated     int64  `json:"updated"`
 	Attachments [] *Attachment
 	Gifs        [] *Gif
+	Read        bool   `json:"read"`
 }
 
 var MessageType = graphql.NewObject(
@@ -38,6 +39,9 @@ var MessageType = graphql.NewObject(
 				Type: graphql.String,
 			},
 			"emoji": &graphql.Field{
+				Type: graphql.Boolean,
+			},
+			"read": &graphql.Field{
 				Type: graphql.Boolean,
 			},
 			"created": &graphql.Field{
@@ -125,6 +129,7 @@ func scanMessage(rows *sql.Rows) ([] *Message, error) {
 		attachmentOriginal  sql.NullString
 		attachmentType      sql.NullString
 		attachmentSize      sql.NullInt64
+		read                sql.NullBool
 	)
 
 	var messages []*Message
@@ -132,7 +137,8 @@ func scanMessage(rows *sql.Rows) ([] *Message, error) {
 
 	for rows.Next() {
 
-		if err := rows.Scan(&id, &userId, &groupId, &body, &emoji, &created, &updated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize); err != nil {
+		if err := rows.Scan(&id, &userId, &groupId, &body, &emoji, &created, &updated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize,
+			&read); err != nil {
 			fmt.Println("Scan message error", err)
 		}
 
@@ -162,6 +168,7 @@ func scanMessage(rows *sql.Rows) ([] *Message, error) {
 				Emoji:   emoji,
 				Created: created,
 				Updated: updated,
+				Read:    read.Bool,
 			}
 			if attachment != nil {
 				message.Attachments = append(message.Attachments, attachment)
@@ -179,15 +186,14 @@ func (m *Message) Load() (*Message, error) {
 
 	query := `
 		SELECT m.*, 
-		a.id, a.message_id, a.name, a.original, a.type, a.size
-		FROM messages AS m LEFT JOIN attachments as a 
+		a.id, a.message_id, a.name, a.original, a.type, a.size,
+		(SELECT COUNT(DISTINCT id) from read_messages WHERE message_id = m.id AND user_id =?) as isRead
+		FROM messages AS m LEFT JOIN attachments as a
 		ON m.id = a.message_id 
 		WHERE m.id=?
-		order by m.created DESC, a.id DESC 
-		LIMIT ? OFFSET ?
+		order by m.created DESC, a.id DESC
 	`
-
-	rows, err := db.DB.List(query, m.Id, 1, 0)
+	rows, err := db.DB.List(query, m.UserId, m.Id)
 
 	messages, err := scanMessage(rows)
 
@@ -202,18 +208,18 @@ func (m *Message) Load() (*Message, error) {
 	return nil, err
 }
 
-func Messages(limit int, skip int) ([] *Message, error) {
+func Messages(groupId int64, userId int64, limit int, skip int) ([] *Message, error) {
 
 	query := `
 		SELECT m.id, m.user_id, m.group_id, m.body, m.emoji, m.created, m.updated, 
-		a.id, a.message_id, a.name, a.original, a.type, a.size
+		a.id, a.message_id, a.name, a.original, a.type, a.size,
+		(SELECT COUNT(DISTINCT id) from read_messages WHERE message_id = m.id AND user_id =?) as isRead
 		FROM messages AS m LEFT JOIN attachments as a 
 		ON m.id = a.message_id 
-		order by m.created DESC 
-		LIMIT ? OFFSET ?
+		INNER JOIN (SELECT mm.id FROM messages as mm WHERE mm.group_id =? ORDER BY mm.id DESC LIMIT ? OFFSET ?) as mj on mj.id = m.id
 	`
 
-	rows, err := db.DB.List(query, limit, skip)
+	rows, err := db.DB.List(query, userId, groupId, limit, skip)
 
 	messages, err := scanMessage(rows)
 

@@ -71,6 +71,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 		messageGroupId      sql.NullInt64
 		messageBody         sql.NullString
 		messageEmoji        sql.NullBool
+		messageIsRead       sql.NullBool
 		messageCreated      sql.NullInt64
 		messageUpdated      sql.NullInt64
 		attachmentId        sql.NullInt64
@@ -99,12 +100,11 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 
 		if err := rows.Scan(&id, &userId, &title, &avatar, &created, &updated, &messageId, &messageUserId, &messageGroupId, &messageBody, &messageEmoji,
 			&messageCreated, &messageUpdated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize,
-			&uUserId, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &unread,
-		); err != nil {
+			&uUserId, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &unread, &messageIsRead,
+		);
+			err != nil {
 			fmt.Println("Scan message error", err)
 		}
-
-		fmt.Println("scan:", id, messageGroupId.Int64, messageId.Int64)
 
 		if messageId.Int64 > 0 {
 			// has message
@@ -116,6 +116,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 				Emoji:   messageEmoji.Bool,
 				Created: messageCreated.Int64,
 				Updated: messageUpdated.Int64,
+				Read:    messageIsRead.Bool,
 			}
 		}
 
@@ -172,7 +173,6 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 
 					for _, u := range g.Users {
 
-						fmt.Println("user", user.Id, uUserId)
 						if u.Id == uUserId.Int64 {
 							hasUser = true
 						}
@@ -219,7 +219,6 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 
 func Load(id int64, userId int64) (*Group, error) {
 
-	fmt.Println("a", userId)
 	var rows *sql.Rows
 	query := `
 		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
@@ -262,40 +261,43 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
 		(SELECT COUNT(DISTINCT cm.id) 
         FROM messages cm WHERE cm.group_id = g.id AND cm.id NOT IN (SELECT message_id FROM read_messages WHERE message_id = cm.id  AND user_id =? )
-       ) as unread
+       ) as unread,
+       	r.id as mread
 		FROM groups as g 
 		INNER JOIN members AS m ON m.group_id = g.id
-		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
+		LEFT JOIN users as u ON u.id = m.user_id 
+		LEFT JOIN messages as message ON message.group_id = g.id 
 		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
+		LEFT JOIN read_messages as r ON r.message_id = message.id AND r.user_id =?
 		LEFT JOIN attachments as a ON a.message_id = message.id INNER JOIN (SELECT gr.id FROM groups as gr INNER JOIN members as mb ON gr.id = mb.group_id AND mb.blocked = 0 
-		AND mb.user_id = ? INNER JOIN messages as msg ON msg.group_id = gr.id GROUP BY gr.id ORDER BY msg.id DESC LIMIT ? OFFSET ?) as grj ON grj.id = g.id
+		AND mb.user_id =? INNER JOIN messages as msg ON msg.group_id = gr.id GROUP BY gr.id ORDER BY msg.id DESC LIMIT ? OFFSET ?) as grj ON grj.id = g.id
 	`
 
-		rows, err = db.DB.List(query, userId, userId, limit, skip)
+		rows, err = db.DB.List(query, userId, userId, userId, limit, skip)
 	} else {
 
-		search = "%" + search + "%"
+		searchLike := "%" + search + "%"
+
 		query = `
 		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
 		a.size, u.id, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
 		(SELECT COUNT(DISTINCT cm.id) 
-        FROM messages cm WHERE cm.group_id = g.id AND cm.id NOT IN (SELECT message_id FROM read_messages WHERE message_id = cm.id AND user_id =?)
-       ) as unread
+        FROM messages cm WHERE cm.group_id = g.id AND cm.id NOT IN (SELECT message_id FROM read_messages WHERE message_id = cm.id  AND user_id =? )
+       ) as unread,
+       	r.id as mread
 		FROM groups as g 
-		INNER JOIN members AS m ON m.group_id = g.id AND m.blocked = 0
-		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
+		INNER JOIN members AS m ON m.group_id = g.id
+		LEFT JOIN users as u ON u.id = m.user_id 
+		LEFT JOIN messages as message ON message.group_id = g.id 
 		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
-		LEFT JOIN attachments as a ON a.message_id = message.id 
-		INNER JOIN 
-		(SELECT gr.id FROM groups as gr 
-		INNER JOIN members as mb ON gr.id = mb.group_id AND mb.blocked = 0 AND mb.user_id = ? 
-		INNER JOIN messages as msg ON msg.group_id = gr.id GROUP BY gr.id ORDER BY msg.id DESC LIMIT ? OFFSET ?) as grj ON grj.id = g.id
-		g.title like ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR MATCH(message.body) AGAINST(?) 
-		ORDER BY message.id DESC
+		LEFT JOIN read_messages as r ON r.message_id = message.id AND r.user_id =?
+		LEFT JOIN attachments as a ON a.message_id = message.id INNER JOIN (SELECT gr.id FROM groups as gr INNER JOIN members as mb ON gr.id = mb.group_id AND mb.blocked = 0 
+		AND mb.user_id =? INNER JOIN messages as msg ON msg.group_id = gr.id GROUP BY gr.id ORDER BY msg.id DESC LIMIT ? OFFSET ?) as grj ON grj.id = g.id
+		WHERE g.title like ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR MATCH(message.body) AGAINST(?)
 		`
 
-		rows, err = db.DB.List(query, userId, userId, search, search, search, search, limit, skip)
+		rows, err = db.DB.List(query, userId, userId, userId, limit, skip, searchLike, searchLike, searchLike, search)
 	}
 
 	result, err := scanGroup(rows)

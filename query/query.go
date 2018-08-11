@@ -99,8 +99,17 @@ var Query = graphql.NewObject(
 						return nil, errors.New("invalid id")
 					}
 
+					auth := model.GetAuth(p)
+
+					var userId int64
+
+					if auth != nil {
+						userId = auth.UserId
+					}
+
 					message := &model.Message{
-						Id: int64(id),
+						Id:     int64(id),
+						UserId: userId,
 					}
 
 					result, err := message.Load()
@@ -115,6 +124,10 @@ var Query = graphql.NewObject(
 			"messages": &graphql.Field{
 				Type: graphql.NewList(model.MessageType),
 				Args: graphql.FieldConfigArgument{
+					"group_id": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
 					"limit": &graphql.ArgumentConfig{
 						Type:         graphql.Int,
 						DefaultValue: 50,
@@ -129,8 +142,19 @@ var Query = graphql.NewObject(
 
 					limit := params.Args["limit"].(int)
 					skip := params.Args["skip"].(int)
+					groupId, ok := params.Args["group_id"].(int)
 
-					messages, err := model.Messages(limit, skip)
+					if !ok {
+						return nil, errors.New("invalid group id")
+					}
+					var userId int64
+
+					auth := model.GetAuth(params)
+					if auth != nil {
+						userId = auth.UserId
+					}
+
+					messages, err := model.Messages(int64(groupId), userId, limit, skip)
 					if err != nil {
 						return nil, err
 					}
