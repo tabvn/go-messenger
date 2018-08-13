@@ -7,7 +7,7 @@
 #
 # Host: 127.0.0.1 (MySQL 5.6.40)
 # Database: messenger
-# Generation Time: 2018-08-10 16:21:22 +0000
+# Generation Time: 2018-08-13 02:49:20 +0000
 # ************************************************************
 
 
@@ -39,22 +39,37 @@ CREATE TABLE `attachments` (
 
 
 
-# Dump of table friends
+# Dump of table blocked
 # ------------------------------------------------------------
 
-DROP TABLE IF EXISTS `friends`;
+DROP TABLE IF EXISTS `blocked`;
 
-CREATE TABLE `friends` (
+CREATE TABLE `blocked` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `user` int(11) unsigned DEFAULT '0',
-  `friend` int(11) unsigned DEFAULT '0',
-  `status` int(11) DEFAULT '1',
+  `author` int(11) unsigned DEFAULT NULL,
+  `user` int(11) unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique` (`author`,`user`),
+  KEY `user` (`user`),
+  CONSTRAINT `blocked_ibfk_1` FOREIGN KEY (`author`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `blocked_ibfk_2` FOREIGN KEY (`user`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
+# Dump of table friendship
+# ------------------------------------------------------------
+
+DROP TABLE IF EXISTS `friendship`;
+
+CREATE TABLE `friendship` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) unsigned DEFAULT '0',
+  `friend_id` int(11) unsigned DEFAULT '0',
+  `status` tinyint(1) DEFAULT '0',
   `created` int(11) DEFAULT '0',
   PRIMARY KEY (`id`),
-  KEY `user` (`user`),
-  KEY `friend` (`friend`),
-  CONSTRAINT `friends_ibfk_1` FOREIGN KEY (`user`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `friends_ibfk_2` FOREIGN KEY (`friend`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  UNIQUE KEY `unique_friendship` (`user_id`,`friend_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -128,14 +143,14 @@ CREATE TABLE `messages` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` int(11) unsigned DEFAULT '0',
   `group_id` int(11) unsigned DEFAULT '0',
-  `body` longtext,
+  `body` text,
   `emoji` tinyint(1) DEFAULT '0',
   `created` int(11) DEFAULT '0',
   `updated` int(11) DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   KEY `group_id` (`group_id`),
-  FULLTEXT KEY `fulltext` (`body`),
+  FULLTEXT KEY `body` (`body`),
   CONSTRAINT `messages_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `messages_ibfk_2` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -157,6 +172,19 @@ CREATE TABLE `read_messages` (
   KEY `message_id` (`message_id`),
   CONSTRAINT `read_messages_ibfk_2` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE,
   CONSTRAINT `read_messages_ibfk_3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
+# Dump of table secrets
+# ------------------------------------------------------------
+
+DROP TABLE IF EXISTS `secrets`;
+
+CREATE TABLE `secrets` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `secret` varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -201,6 +229,7 @@ CREATE TABLE `users` (
   `updated` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_email` (`email`),
+  UNIQUE KEY `unique_uid` (`uid`),
   FULLTEXT KEY `fulltext` (`first_name`,`last_name`,`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

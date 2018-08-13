@@ -14,7 +14,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 		"createUser": &graphql.Field{
 			Type:        model.UserType,
-			Description: "Create new user",
+			Description: "Create new user, secret only!",
 			Args: graphql.FieldConfigArgument{
 				"first_name": &graphql.ArgumentConfig{
 					Type:         graphql.String,
@@ -72,7 +72,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 		},
 		"createOrUpdateUser": &graphql.Field{
 			Type:        model.UserType,
-			Description: "Create or update user",
+			Description: "Create or update user, Secret only.",
 			Args: graphql.FieldConfigArgument{
 				"uid": &graphql.ArgumentConfig{
 					Type:         graphql.NewNonNull(graphql.Int),
@@ -125,6 +125,71 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				user.Password = ""
 
 				return user, err
+
+			},
+		},
+		"requestUserToken": &graphql.Field{
+			Type:        model.LoginType,
+			Description: "Create or update user, secret only.",
+			Args: graphql.FieldConfigArgument{
+				"uid": &graphql.ArgumentConfig{
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+				"first_name": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"last_name": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"avatar": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"email": &graphql.ArgumentConfig{
+					Type: graphql.NewNonNull(graphql.String),
+				},
+				"password": &graphql.ArgumentConfig{
+					Type: graphql.NewNonNull(graphql.String),
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				user := &model.User{
+					FirstName: params.Args["first_name"].(string),
+					LastName:  params.Args["last_name"].(string),
+					Avatar:    params.Args["avatar"].(string),
+					Email:     params.Args["email"].(string),
+					Uid:       int64(params.Args["uid"].(int)),
+					Password:  params.Args["password"].(string),
+				}
+
+				// only allow secret key to auth user data
+				// update or create user. and then create a token
+				secret := params.Context.Value("secret")
+
+				if secret == nil {
+
+					return nil, errors.New("access denied")
+				}
+
+				token, err := user.RequestUserToken()
+
+				if err != nil {
+					return nil, err
+				}
+
+				result := map[string]interface{}{
+					"id":      token.Id,
+					"token":   token.Token,
+					"created": token.Created,
+					"user":    user,
+				}
+				user.Password = ""
+
+				return result, err
 
 			},
 		},
@@ -200,7 +265,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 		"deleteUser": &graphql.Field{
 			Type:        graphql.Boolean,
-			Description: "Delete user",
+			Description: "Delete user. Secret only",
 			Args: graphql.FieldConfigArgument{
 				"id": &graphql.ArgumentConfig{
 					Type: graphql.NewNonNull(graphql.Int),
@@ -600,6 +665,123 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				}
 
 				return true, nil
+
+			},
+		},
+		"addFriend": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "add friend",
+			Args: graphql.FieldConfigArgument{
+				"user": &graphql.ArgumentConfig{
+					Description:  "user_id, only allow set user_id for secret, other wise take user_id from auth",
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+				"friend": &graphql.ArgumentConfig{
+					Description:  "Friend user_id",
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				userId, ok := params.Args["user"].(int)
+
+				friendId, fok := params.Args["friend"].(int)
+
+				if !fok {
+					return nil, errors.New("invalid friend user_id")
+				}
+				if !ok {
+					return nil, errors.New("invalid user_id")
+				}
+
+				var auth *model.Auth
+
+				// allow super or authenticated user
+				secret := params.Context.Value("secret")
+
+				uid := int64(userId)
+				friend := int64(friendId)
+
+				if secret == nil {
+					auth = model.GetAuth(params)
+					if auth == nil {
+						return nil, errors.New("access denied")
+					} else {
+
+						// only take user_id from auth
+
+						uid = auth.UserId
+
+					}
+				}
+
+				result, err := model.AddFriend(uid, friend)
+
+				if err != nil {
+					return false, err
+				}
+
+				return result, err
+
+			},
+		},
+		"unFriend": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "remove friendship",
+			Args: graphql.FieldConfigArgument{
+				"user": &graphql.ArgumentConfig{
+					Description:  "user_id, only allow set user_id for secret, other wise take user_id from auth",
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+				"friend": &graphql.ArgumentConfig{
+					Description:  "Friend user_id",
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				userId, ok := params.Args["user"].(int)
+
+				friendId, fok := params.Args["friend"].(int)
+
+				if !fok {
+					return nil, errors.New("invalid friend user_id")
+				}
+				if !ok {
+					return nil, errors.New("invalid user_id")
+				}
+
+				var auth *model.Auth
+
+				// allow super or authenticated user
+				secret := params.Context.Value("secret")
+
+				uid := int64(userId)
+				friend := int64(friendId)
+
+				if secret == nil {
+					auth = model.GetAuth(params)
+					if auth == nil {
+						return nil, errors.New("access denied")
+					} else {
+
+						// only take user_id from auth
+
+						uid = auth.UserId
+
+					}
+				}
+				result, err := model.UnFriend(uid, friend)
+
+				if err != nil {
+					return false, err
+				}
+
+				return result, err
 
 			},
 		},

@@ -45,6 +45,11 @@ var Query = graphql.NewObject(
 				Type:        graphql.NewList(model.UserType),
 				Description: "Get user list",
 				Args: graphql.FieldConfigArgument{
+
+					"user_id": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
 					"limit": &graphql.ArgumentConfig{
 						Type:         graphql.Int,
 						DefaultValue: 50,
@@ -58,8 +63,15 @@ var Query = graphql.NewObject(
 
 					var auth *model.Auth
 
+					uid, ok := params.Args["user_id"].(int)
+
+					if !ok {
+						return nil, errors.New("invalid user_id")
+					}
 					limit := params.Args["limit"].(int)
 					skip := params.Args["skip"].(int)
+
+					userId := int64(uid)
 
 					// allow super or authenticated user
 					secret := params.Context.Value("secret")
@@ -67,10 +79,12 @@ var Query = graphql.NewObject(
 						auth = model.GetAuth(params)
 						if auth == nil {
 							return nil, errors.New("access denied")
+						} else {
+							userId = auth.UserId
 						}
 					}
 
-					users, err := model.Users(limit, skip)
+					users, err := model.Users(userId, limit, skip)
 
 					if secret == nil {
 						for _, u := range users {
@@ -290,6 +304,63 @@ var Query = graphql.NewObject(
 						return nil, err
 					}
 					return result, err
+				},
+			},
+			"friends": &graphql.Field{
+				Type:        graphql.NewList(model.UserType),
+				Description: "Get friend list",
+				Args: graphql.FieldConfigArgument{
+					"user_id": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
+					"limit": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 50,
+					},
+					"skip": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
+				},
+				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+					var auth *model.Auth
+
+					userId, userIdOk := params.Args["user_id"].(int)
+					limit := params.Args["limit"].(int)
+					skip := params.Args["skip"].(int)
+
+					if !userIdOk {
+						return nil, errors.New("invalid user_id")
+					}
+
+					uid := int64(userId)
+
+					// allow super or authenticated user
+					secret := params.Context.Value("secret")
+					if secret == nil {
+						auth = model.GetAuth(params)
+						if auth == nil {
+							return nil, errors.New("access denied")
+						} else {
+							// only accept userId from auth
+							uid = auth.UserId
+						}
+					}
+
+					users, err := model.Friends(uid, limit, skip)
+
+					if secret == nil {
+						for _, u := range users {
+							u.Email = ""
+						}
+					}
+
+					if err != nil {
+						return nil, err
+					}
+					return users, err
 				},
 			},
 		},

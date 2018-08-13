@@ -37,6 +37,8 @@ type User struct {
 	About        string `json:"about"`
 	Created      int64  `json:"created"`
 	Updated      int64  `json:"updated"`
+	Friend       bool   `json:"friend"`
+	Blocked      bool   `json:"blocked"`
 }
 
 var UserType = graphql.NewObject(
@@ -84,6 +86,12 @@ var UserType = graphql.NewObject(
 			},
 			"updated": &graphql.Field{
 				Type: graphql.Int,
+			},
+			"friend": &graphql.Field{
+				Type: graphql.Boolean,
+			},
+			"blocked": &graphql.Field{
+				Type: graphql.Boolean,
 			},
 		},
 	},
@@ -233,6 +241,30 @@ func (u *User) CreateOrUpdate() (error) {
 	return nil
 }
 
+func (u *User) RequestUserToken() (*Token, error) {
+
+	err := u.CreateOrUpdate()
+
+	if err != nil {
+		return nil, err
+	}
+
+	t := &Token{
+		Id:      0,
+		UserId:  u.Id,
+		Token:   uuid.Must(uuid.NewV4()).String(),
+		Created: helper.GetUnixTimestamp(),
+	}
+
+	r, tokenErr := t.Create()
+
+	if tokenErr != nil {
+		return nil, tokenErr
+	}
+
+	return r, nil
+}
+
 func UserStatus(online bool, customStatus string) (string) {
 
 	var onlineStatus string
@@ -267,16 +299,27 @@ func scanUser(s db.RowScanner) (*User, error) {
 		about        sql.NullString
 		created      sql.NullInt64
 		updated      sql.NullInt64
+		friendship   sql.NullInt64
+		blocked      sql.NullInt64
 	)
 
 	if err := s.Scan(&id, &uid, &firstName, &lastName, &email, &password, &avatar,
-		&online, &customStatus, &location, &work, &school, &about, &created, &updated);
+		&online, &customStatus, &location, &work, &school, &about, &created, &updated, &friendship, &blocked);
 		err != nil {
 		return nil, err
 	}
 
 	onlineStatus := UserStatus(online.Bool, customStatus.String)
 
+	var isFriend = false
+	var isBlocked = false
+
+	if friendship.Int64 > 0 {
+		isFriend = true
+	}
+	if blocked.Int64 > 0 {
+		isBlocked = true
+	}
 	user := &User{
 		Id:           id,
 		Uid:          uid,
@@ -294,6 +337,8 @@ func scanUser(s db.RowScanner) (*User, error) {
 		About:        about.String,
 		Created:      created.Int64,
 		Updated:      updated.Int64,
+		Friend:       isFriend,
+		Blocked:      isBlocked,
 	}
 
 	return user, nil
@@ -455,9 +500,11 @@ func LogoutUser(token string) (bool, error) {
 	return success, nil
 }
 
-func Users(limit int, skip int) ([]*User, error) {
+func Users(userId int64, limit int, skip int) ([]*User, error) {
 
-	rows, err := db.DB.List("SELECT * FROM users ORDER BY created DESC LIMIT ? OFFSET ?", limit, skip)
+	q := `SELECT u.*, f.id, b.id friendship FROM users as u LEFT JOIN friendship as f ON  f.friend_id = u.id AND f.user_id =? AND f.status = 1 LEFT JOIN blocked as b ON b.author =? AND b.user = u.id ORDER BY created DESC LIMIT ? OFFSET ?`
+
+	rows, err := db.DB.List(q, userId, userId, limit, skip)
 
 	if err != nil {
 		return nil, err

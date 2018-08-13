@@ -100,6 +100,19 @@ func (db *Database) Insert(query string, args ...interface{}) (int64, error) {
 
 }
 
+func (db *Database) InsertMany(query string, args ...interface{}) (int64, error) {
+
+	stmt, _ := DB.Prepare(query)
+
+	r, err := stmt.Exec(args...)
+	if err != nil {
+		return 0, fmt.Errorf("%v", err)
+	}
+	rowsAffected, err := r.RowsAffected()
+
+	return rowsAffected, nil
+
+}
 func (db *Database) Update(query string, args ...interface{}) (int64, error) {
 
 	stmt, _ := DB.conn.Prepare(query)
@@ -187,6 +200,24 @@ func (db *Database) Delete(query string, args ...interface{}) (int64, error) {
 	}
 
 	return lastInsertID, nil
+
+}
+
+func (db *Database) DeleteMany(query string, args ...interface{}) (int64, error) {
+
+	stmt, _ := DB.conn.Prepare(query)
+
+	r, err := stmt.Exec(args...)
+	if err != nil {
+		return 0, fmt.Errorf("could not execute statement: %v", err)
+	}
+	rowsAffected, err := r.RowsAffected()
+
+	if err != nil {
+		return 0, fmt.Errorf("could not get rows affected: %v", err)
+	}
+
+	return rowsAffected, nil
 
 }
 
