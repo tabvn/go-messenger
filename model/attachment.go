@@ -8,7 +8,7 @@ type Attachment struct {
 	Name      string `json:"name"`
 	Original  string `json:"original"`
 	Type      string `json:"type"`
-	Size      int    `json:"size"`
+	Size      int64  `json:"size"`
 }
 
 var AttachmentType = graphql.NewObject(

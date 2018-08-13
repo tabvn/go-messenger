@@ -164,8 +164,6 @@ func (u *User) Create() (error) {
 
 func (u *User) Update() (error) {
 
-	fmt.Println("update", u)
-
 	currentTime := time.Now()
 	u.Updated = currentTime.Unix()
 
@@ -346,7 +344,9 @@ func scanUser(s db.RowScanner) (*User, error) {
 
 func (u *User) Load() (*User, error) {
 
-	row, err := db.DB.Get("users", u.Id)
+	//count(id), count(created) is fake scan for blocked and friend
+	row, err := db.DB.FindOne(`SELECT u.*, count(id), count(created)  FROM users AS u  WHERE id = ?`, u.Id)
+
 	if err != nil {
 		return nil, err
 	}

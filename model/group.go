@@ -131,7 +131,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 				Name:      attachmentName.String,
 				Original:  attachmentOriginal.String,
 				Type:      attachmentType.String,
-				Size:      int(attachmentSize.Int64),
+				Size:      attachmentSize.Int64,
 			}
 
 		}
@@ -227,8 +227,8 @@ func LoadGroup(id int64, userId int64) (*Group, error) {
 	var rows *sql.Rows
 	query := `
 		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
-		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, a.name, a.original, a.type,
-		a.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
+		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, f.name, f.original, f.type,
+		f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
 		(SELECT COUNT(DISTINCT cm.id) 
         FROM messages cm WHERE cm.group_id = g.id AND cm.id NOT IN (SELECT message_id FROM read_messages WHERE message_id = cm.id  AND user_id =? )
        ) as unread,
@@ -238,7 +238,10 @@ func LoadGroup(id int64, userId int64) (*Group, error) {
 		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
 		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
 		LEFT JOIN read_messages as r ON r.message_id = message.id AND r.user_id =?
-		LEFT JOIN attachments as a ON a.message_id = message.id WHERE g.id = ?
+		LEFT JOIN attachments as a ON a.message_id = message.id
+		LEFT JOIN files as f ON a.file_id = f.id
+		WHERE g.id = ?
+		
 	`
 	rows, err := db.DB.List(query, userId, userId, id)
 
@@ -373,7 +376,7 @@ func LeftGroup(userId, groupId int64) (int64, error) {
 	return result, err
 }
 
-func FindOrCreateGroup(requestUserId int64, userIds [] int64, title, avatar string) (*Group, error) {
+func FindOrCreateGroup(authorId int64, userIds [] int64, title, avatar string) (int64, error) {
 
 	// find group with all members
 
@@ -402,7 +405,7 @@ func FindOrCreateGroup(requestUserId int64, userIds [] int64, title, avatar stri
 	row, err := db.DB.FindOne(findQuery, total, total)
 
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	var (
@@ -413,22 +416,59 @@ func FindOrCreateGroup(requestUserId int64, userIds [] int64, title, avatar stri
 	scanErr := row.Scan(&scanGroupId, &scanTotal)
 
 	if scanErr != nil && scanErr != sql.ErrNoRows {
-		return nil, scanErr
+		return 0, scanErr
 	}
 
-	if scanGroupId.Int64 > 0 {
-		// group is exist so load group and return
-		group, err := LoadGroup(scanGroupId.Int64, requestUserId)
-		if err != nil {
-			return nil, err
-		}
+	groupId := scanGroupId.Int64
 
-		return group, nil
+	if groupId > 0 {
+		// group is exist so load group and return
+		return groupId, nil
+
 	} else {
 
-		fmt.Println("handle create new group...", userIds)
+		unixTime := helper.GetUnixTimestamp()
+
+		createGroupQuery := `INSERT INTO groups (userId, title, avatar, created, updated) VALUES (?,?,?,?,?)`
+
+		gid, createErr := db.DB.Insert(createGroupQuery, authorId, title, avatar, unixTime, unixTime)
+
+		if createErr != nil {
+			return 0, createErr
+		}
+
+		// create members
+
+		values := ""
+
+		for i := 0; i < len(userIds); i++ {
+			uid := userIds[i]
+
+			if i == 0 {
+				str := fmt.Sprintf("(%d, %d, %d, %d)", uid, groupId, 0, unixTime)
+				values += str
+			} else {
+				values += fmt.Sprintf(", (%d, %d, %d, %d)", uid, groupId, 0, unixTime)
+			}
+
+		}
+
+		createMemberQuery := `INSERT INTO members (userId, groupId, blocked, created) values ` + values
+
+		numRows, createMemberErr := db.DB.InsertMany(createMemberQuery)
+		if createMemberErr != nil {
+			db.DB.Delete(`DELETE groups WHERE id =? `, gid)
+			return 0, createMemberErr
+		}
+		if numRows == int64(len(userIds)) {
+			return gid, nil
+		} else {
+			// delete group
+			db.DB.Delete(`DELETE groups WHERE id =? `, gid)
+		}
+
 	}
 
-	return nil, nil
+	return 0, nil
 
 }

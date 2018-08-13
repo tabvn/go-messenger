@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"messenger/helper"
 	"errors"
+	"strconv"
 )
 
 type Message struct {
@@ -19,8 +20,8 @@ type Message struct {
 	Created     int64  `json:"created"`
 	Updated     int64  `json:"updated"`
 	Attachments [] *Attachment
-	Gifs        [] *Gif
 	Read        bool   `json:"read"`
+	Gif         string `json:"gif"`
 }
 
 var MessageType = graphql.NewObject(
@@ -43,6 +44,9 @@ var MessageType = graphql.NewObject(
 			"emoji": &graphql.Field{
 				Type: graphql.Boolean,
 			},
+			"gif": &graphql.Field{
+				Type: graphql.String,
+			},
 			"read": &graphql.Field{
 				Type: graphql.Boolean,
 			},
@@ -54,9 +58,6 @@ var MessageType = graphql.NewObject(
 			},
 			"attachments": &graphql.Field{
 				Type: graphql.NewList(AttachmentType),
-			},
-			"gifs": &graphql.Field{
-				Type: graphql.NewList(GifType),
 			},
 		},
 	},
@@ -149,6 +150,7 @@ func scanMessage(rows *sql.Rows) ([] *Message, error) {
 		groupId             int64
 		body                sql.NullString
 		emoji               bool
+		gif                 sql.NullString
 		created             int64
 		updated             int64
 		attachmentId        sql.NullInt64
@@ -165,7 +167,7 @@ func scanMessage(rows *sql.Rows) ([] *Message, error) {
 
 	for rows.Next() {
 
-		if err := rows.Scan(&id, &userId, &groupId, &body, &emoji, &created, &updated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize,
+		if err := rows.Scan(&id, &userId, &groupId, &body, &emoji, &gif, &created, &updated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize,
 			&read); err != nil {
 			fmt.Println("Scan message error", err)
 		}
@@ -179,13 +181,16 @@ func scanMessage(rows *sql.Rows) ([] *Message, error) {
 				Name:      attachmentName.String,
 				Original:  attachmentOriginal.String,
 				Type:      attachmentType.String,
-				Size:      int(attachmentSize.Int64),
+				Size:      attachmentSize.Int64,
 			}
 		}
 
 		if message != nil && message.Id == id {
 			// exist so need append attachments
-			message.Attachments = append(message.Attachments, attachment)
+			if attachmentId.Int64 > 0{
+				message.Attachments = append(message.Attachments, attachment)
+			}
+
 
 		} else {
 			message = &Message{
@@ -214,10 +219,11 @@ func (m *Message) Load() (*Message, error) {
 
 	query := `
 		SELECT m.*, 
-		a.id, a.message_id, a.name, a.original, a.type, a.size,
+		a.id, a.message_id, f.name, f.original, f.type, f.size,
 		(SELECT COUNT(DISTINCT id) from read_messages WHERE message_id = m.id AND user_id =?) as isRead
 		FROM messages AS m LEFT JOIN attachments as a
 		ON m.id = a.message_id 
+		LEFT JOIN files as f ON a.file_id = f.id
 		WHERE m.id=?
 		order by m.created DESC, a.id DESC
 	`
@@ -239,11 +245,12 @@ func (m *Message) Load() (*Message, error) {
 func Messages(groupId int64, userId int64, limit int, skip int) ([] *Message, error) {
 
 	query := `
-		SELECT m.id, m.user_id, m.group_id, m.body, m.emoji, m.created, m.updated, 
-		a.id, a.message_id, a.name, a.original, a.type, a.size,
+		SELECT m.id, m.user_id, m.group_id, m.body, m.emoji, m.gif, m.created, m.updated, 
+		a.id, a.message_id, f.name, f.original, f.type, f.size,
 		(SELECT COUNT(DISTINCT id) from read_messages WHERE message_id = m.id AND user_id =?) as isRead
-		FROM messages AS m LEFT JOIN attachments as a 
-		ON m.id = a.message_id 
+		FROM messages AS m 
+		LEFT JOIN attachments as a ON m.id = a.message_id
+		LEFT JOIN files as f ON a.file_id = f.id
 		INNER JOIN (SELECT mm.id FROM messages as mm WHERE mm.group_id =? ORDER BY mm.id DESC LIMIT ? OFFSET ?) as mj on mj.id = m.id
 	`
 
@@ -260,11 +267,12 @@ func Messages(groupId int64, userId int64, limit int, skip int) ([] *Message, er
 
 func UnreadMessages(userId int64, limit int, skip int) ([] *Message, error) {
 	query := `
-		SELECT m.id, m.user_id, m.group_id, m.body, m.emoji, m.created, m.updated, 
-		a.id, a.message_id, a.name, a.original, a.type, a.size
+		SELECT m.id, m.user_id, m.group_id, m.body, m.emoji, m.gif, m.created, m.updated, 
+		a.id, a.message_id, f.name, f.original, f.type, f.size
 		FROM messages AS m
 		LEFT JOIN attachments as a 
 		ON m.id = a.message_id 
+		LEFT JOIN files AS f ON a.file_id = f.id
 		WHERE m.id NOT IN (SELECT message_id FROM read_messages WHERE user_id = ?)
 		order by m.created DESC 
 		LIMIT ? OFFSET ?
@@ -324,4 +332,117 @@ func MarkMessageAsRead(id int64, userId int64) (error) {
 	_, err := db.DB.Insert(q, id, userId, helper.GetUnixTimestamp())
 
 	return err
+}
+
+func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif string, attachments [] int64) (*Message, error) {
+
+	unixTime := helper.GetUnixTimestamp()
+	messageId, err := db.DB.Insert(`INSERT INTO messages (group_id, user_id, body, emoji, gif, created, updated) VALUES (?,?,?,?,?,?,?)`,
+		groupId, userId, body, gif, emoji, unixTime, unixTime)
+
+	fmt.Println("got message id created", messageId, err)
+	if err != nil {
+		return nil, err
+	}
+
+	if messageId > 0 {
+		// let do insert attachments
+
+		message := &Message{
+			Id:      messageId,
+			UserId:  userId,
+			Body:    body,
+			Emoji:   emoji,
+			GroupId: groupId,
+			Gif:     gif,
+			Created: unixTime,
+		}
+
+		if len(attachments) > 0 {
+
+			inArrString := ""
+
+			for _, u := range attachments {
+
+				if inArrString == "" {
+					inArrString += strconv.Itoa(int(u))
+				} else {
+					inArrString += ", " + strconv.Itoa(int(u))
+				}
+
+			}
+
+			q := fmt.Sprintf("SELECT * FROM files WHERE id IN (%s) AND user_id=?", inArrString)
+
+			rows, err := db.DB.List(q, userId)
+			if err != nil {
+				return nil, err
+			}
+
+			files, err := scanFiles(rows)
+
+			if err != nil {
+				return nil, err
+			}
+
+			// let create attachments
+			value := ""
+
+			for index, file := range files {
+				if index == 0 {
+
+					value += fmt.Sprintf("(%d, %d)", messageId, file.Id)
+				} else {
+					value += fmt.Sprintf(", (%d, %d)", messageId, file.Id)
+				}
+
+			}
+			if len(files) > 0 {
+
+				for _, file := range files {
+
+					attachmentId, err := db.DB.Insert("INSERT INTO attachments (message_id, file_id) VALUES (?,?)", messageId, file.Id)
+					if err == nil && attachmentId > 0 {
+						attachment := &Attachment{
+							Id:        attachmentId,
+							MessageId: messageId,
+							Name:      file.Name,
+							Original:  file.Original,
+							Size:      file.Size,
+							Type:      file.Type,
+						}
+						message.Attachments = append(message.Attachments, attachment)
+					}
+				}
+
+			}
+		}
+
+		return message, nil
+	}
+
+	return nil, errors.New("unknown error")
+}
+
+func CreateConversation(authorId int64, userIds []int64, messageBody string, messageGif string, messageEmoji bool, attachments [] int64) (*Group, error) {
+
+	gid, err := FindOrCreateGroup(authorId, userIds, "", "")
+
+	if err != nil {
+		return nil, err
+	}
+	if gid > 0 {
+		// got group let create message
+		_, err := CreateMessage(gid, authorId, messageBody, messageEmoji, messageGif, attachments)
+
+		if err != nil {
+			return nil, err
+		}
+
+		group, err := LoadGroup(gid, authorId)
+
+		return group, err
+	}
+
+	return nil, errors.New("unknown error")
 }

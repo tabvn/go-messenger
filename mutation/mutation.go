@@ -4,7 +4,6 @@ import (
 	"github.com/graphql-go/graphql"
 	"messenger/model"
 	"errors"
-	"fmt"
 	"messenger/helper"
 )
 
@@ -366,74 +365,73 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 			},
 		},
-		"createMessage": &graphql.Field{
+		"sendMessage": &graphql.Field{
 			Type:        model.MessageType,
-			Description: "Create new message",
+			Description: "create conversation",
 			Args: graphql.FieldConfigArgument{
 				"user_id": &graphql.ArgumentConfig{
 					Type:         graphql.Int,
 					DefaultValue: 0,
+					Description:  "user_id owner of group",
 				},
 				"group_id": &graphql.ArgumentConfig{
-					Type:         graphql.NewNonNull(graphql.Int),
+					Type: graphql.NewNonNull(graphql.Int),
+				},
+				"body": &graphql.ArgumentConfig{
+					Type:         graphql.String,
 					DefaultValue: "",
 				},
 				"emoji": &graphql.ArgumentConfig{
 					Type:         graphql.Boolean,
 					DefaultValue: false,
 				},
-				"body": &graphql.ArgumentConfig{
-					Type: graphql.String,
+				"gif": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"attachments": &graphql.ArgumentConfig{
+					Type:         graphql.NewList(graphql.Int),
+					DefaultValue: [] int64{},
 				},
 			},
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
-				groupId, ok := params.Args["group_id"].(int)
-				uid, uOk := params.Args["user_id"].(int)
-				if !uOk {
-					return nil, errors.New("invalid user_id")
-				}
+				uid := params.Args["user_id"].(int)
+				gid := params.Args["group_id"].(int)
 
-				if !ok {
+				attachments := helper.GetIds(params.Args["attachments"])
+				gif := params.Args["gif"].(string)
+				body := params.Args["body"].(string)
+				emoji := params.Args["emoji"].(bool)
 
-					return nil, errors.New("invalid group id")
+				secret := params.Context.Value("secret")
 
-				}
+				userId := int64(uid)
+				groupId := int64(gid)
 
 				var auth *model.Auth
-				userId := int64(uid)
 
-				// allow super or authenticated user
-				secret := params.Context.Value("secret")
 				if secret == nil {
 					auth = model.GetAuth(params)
+
 					if auth == nil {
 						return nil, errors.New("access denied")
-					} else {
-						// only allow user_id from auth if not secret
-						userId = auth.UserId
 					}
-				}
-				if userId == 0 {
 
-					return nil, errors.New("user not found")
-				}
+					userId = auth.UserId
 
-				message := &model.Message{
-					UserId:  userId,
-					GroupId: int64(groupId),
-					Body:    params.Args["body"].(string),
-					Emoji:   params.Args["emoji"].(bool),
 				}
-
-				fmt.Println("messgae", message)
-				err := message.Create()
+				message, err := model.CreateMessage(groupId, userId, body, emoji, gif, attachments)
 
 				if err != nil {
 					return nil, err
 				}
 
-				return message, err
+				if message == nil {
+					return nil, nil
+				}
+
+				return message, nil
 
 			},
 		},
@@ -522,6 +520,90 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 			},
 		},
+		"createConversation": &graphql.Field{
+			Type:        model.GroupType,
+			Description: "create conversation",
+			Args: graphql.FieldConfigArgument{
+				"user_id": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 0,
+					Description:  "user_id owner of group",
+				},
+				"participants": &graphql.ArgumentConfig{
+					Type: graphql.NewList(graphql.Int),
+				},
+				"body": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"emoji": &graphql.ArgumentConfig{
+					Type:         graphql.Boolean,
+					DefaultValue: false,
+				},
+				"gif": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"attachments": &graphql.ArgumentConfig{
+					Type:         graphql.NewList(graphql.Int),
+					DefaultValue: [] int64{},
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				uid := params.Args["user_id"].(int)
+				userIdInput := params.Args["participants"]
+
+				userIds := helper.GetIds(userIdInput)
+				attachments := helper.GetIds(params.Args["attachments"])
+				messageGif := params.Args["gif"].(string)
+				messageBody := params.Args["body"].(string)
+				messageEmoji := params.Args["emoji"].(bool)
+
+				secret := params.Context.Value("secret")
+
+				userId := int64(uid)
+
+				var auth *model.Auth
+
+				if secret == nil {
+					auth = model.GetAuth(params)
+
+					if auth == nil {
+						return nil, errors.New("access denied")
+					}
+
+					userId = auth.UserId
+
+					if userId > 0 {
+						var hasAuthorInList = false
+
+						for _, id := range userIds {
+							if id == auth.UserId {
+								hasAuthorInList = true
+								break
+							}
+						}
+
+						if !hasAuthorInList {
+							userIds = append(userIds, auth.UserId)
+						}
+					}
+
+				}
+				group, err := model.CreateConversation(userId, userIds, messageBody, messageGif, messageEmoji, attachments)
+
+				if err != nil {
+					return nil, err
+				}
+
+				if group == nil {
+					return nil, nil
+				}
+				return group, nil
+
+			},
+		},
 		"findOrCreateGroup": &graphql.Field{
 			Type:        model.GroupType,
 			Description: "create group",
@@ -531,7 +613,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					DefaultValue: 0,
 					Description:  "user_id owner of group",
 				},
-				"user_ids": &graphql.ArgumentConfig{
+				"participants": &graphql.ArgumentConfig{
 					Type: graphql.NewList(graphql.Int),
 				},
 				"title": &graphql.ArgumentConfig{
@@ -546,7 +628,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
 				uid := params.Args["user_id"].(int)
-				userIdInput := params.Args["user_ids"]
+				userIdInput := params.Args["participants"]
 				title := params.Args["title"].(string)
 				avatar := params.Args["avatar"].(string)
 
@@ -583,19 +665,23 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					}
 
 				}
-				group, err := model.FindOrCreateGroup(userId, userIds, title, avatar)
+				gid, err := model.FindOrCreateGroup(userId, userIds, title, avatar)
 
 				if err != nil {
 					return nil, errors.New("error")
 				}
 
-				fmt.Println("Found", group, err)
-
-				if group == nil {
+				if gid == 0 {
 					return nil, nil
 				}
 
-				return *group, nil
+				group, loadErr := model.LoadGroup(gid, userId)
+
+				if loadErr != nil {
+					return nil, loadErr
+				}
+
+				return group, nil
 
 			},
 		},
@@ -700,7 +786,6 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				_, err := model.LeftGroup(uid, gid)
 
 				if err != nil {
-					fmt.Println("Left group err", err)
 					return false, errors.New("not found")
 				}
 

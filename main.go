@@ -12,6 +12,7 @@ import (
 	"messenger/db"
 	"fmt"
 	"strconv"
+	"messenger/upload"
 )
 
 const (
@@ -88,6 +89,9 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 
 	result := schema.ExecuteQuery(ctx, p.Query, p.OperationName, schema.Schema)
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
@@ -98,6 +102,7 @@ func main() {
 	// Router api graphQL handler
 	http.HandleFunc("/api", graphqlHandler)
 	http.HandleFunc("/ws", pubsub.WebSocketHandler)
+	http.HandleFunc("/files", upload.HandleFileUpload)
 
 	const PORT = 3007
 
