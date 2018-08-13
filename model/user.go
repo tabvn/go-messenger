@@ -537,3 +537,41 @@ func CountUsers() (int, error) {
 
 	return count, nil
 }
+
+func BlockUser(userId, friendId int64) (bool, error) {
+
+	if userId == friendId {
+		return false, errors.New("can not blocked your self")
+	}
+
+	q := `INSERT INTO blocked (author, user) VALUES (?, ?)`
+
+	id, err := db.DB.Insert(q, userId, friendId)
+
+	if err != nil {
+		return false, err
+
+	}
+	if id > 0 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func UnBlockUser(userId, friendId int64) (bool, error) {
+
+	if userId == friendId {
+		return false, errors.New("can not un blocked your self")
+	}
+
+	q := `DELETE FROM blocked WHERE author =? AND user =?`
+
+	_, err := db.DB.Delete(q, userId, friendId)
+
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}

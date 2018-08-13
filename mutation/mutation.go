@@ -727,6 +727,121 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 			},
 		},
+		"blockUser": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "remove friendship",
+			Args: graphql.FieldConfigArgument{
+				"user": &graphql.ArgumentConfig{
+					Description:  "block user",
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+				"friend": &graphql.ArgumentConfig{
+					Description:  "Friend user_id",
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				userId, ok := params.Args["user"].(int)
+
+				friendId, fok := params.Args["friend"].(int)
+
+				if !fok {
+					return nil, errors.New("invalid friend user_id")
+				}
+				if !ok {
+					return nil, errors.New("invalid user_id")
+				}
+
+				var auth *model.Auth
+
+				// allow super or authenticated user
+				secret := params.Context.Value("secret")
+
+				uid := int64(userId)
+				friend := int64(friendId)
+
+				if secret == nil {
+					auth = model.GetAuth(params)
+					if auth == nil {
+						return nil, errors.New("access denied")
+					} else {
+
+						// only take user_id from auth
+						uid = auth.UserId
+
+					}
+				}
+				result, err := model.BlockUser(uid, friend)
+
+				if err != nil {
+					return false, err
+				}
+
+				return result, err
+
+			},
+		},
+		"unBlockUser": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "remove friendship",
+			Args: graphql.FieldConfigArgument{
+				"user": &graphql.ArgumentConfig{
+					Description:  "block user",
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+				"friend": &graphql.ArgumentConfig{
+					Description:  "Friend user_id",
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				userId, ok := params.Args["user"].(int)
+
+				friendId, fok := params.Args["friend"].(int)
+
+				if !fok {
+					return nil, errors.New("invalid friend user_id")
+				}
+				if !ok {
+					return nil, errors.New("invalid user_id")
+				}
+
+				var auth *model.Auth
+
+				// allow super or authenticated user
+				secret := params.Context.Value("secret")
+
+				uid := int64(userId)
+				friend := int64(friendId)
+
+				if secret == nil {
+					auth = model.GetAuth(params)
+					if auth == nil {
+						return nil, errors.New("access denied")
+					} else {
+
+						// only take user_id from auth
+						uid = auth.UserId
+
+					}
+				}
+
+				result, err := model.UnBlockUser(uid, friend)
+
+				if err != nil {
+					return false, err
+				}
+
+				return result, err
+
+			},
+		},
 		"unFriend": &graphql.Field{
 			Type:        graphql.Boolean,
 			Description: "remove friendship",

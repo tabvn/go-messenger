@@ -42,6 +42,9 @@ var FriendShipType = graphql.NewObject(
 
 func AddFriend(userId, friendId int64) (bool, error) {
 
+	if userId == friendId {
+		return false, errors.New("can not add your self")
+	}
 	// for now we auto accept from friend.
 	q := `INSERT INTO friendship (user_id, friend_id, status, created) VALUES (?, ?, ?, ?), (?, ?, ?, ?)`
 
