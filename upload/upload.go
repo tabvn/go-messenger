@@ -26,6 +26,7 @@ func HandleFileUpload(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
+
 	if authentication != nil {
 		userId = authentication.UserId
 	}

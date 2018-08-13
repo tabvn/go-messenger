@@ -7,7 +7,7 @@
 #
 # Host: 127.0.0.1 (MySQL 5.6.40)
 # Database: messenger
-# Generation Time: 2018-08-13 09:26:50 +0000
+# Generation Time: 2018-08-13 12:48:06 +0000
 # ************************************************************
 
 
@@ -154,24 +154,13 @@ CREATE TABLE `messages` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
-
-# Dump of table read_messages
-# ------------------------------------------------------------
-
-DROP TABLE IF EXISTS `read_messages`;
-
-CREATE TABLE `read_messages` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) unsigned DEFAULT NULL,
-  `message_id` int(11) unsigned DEFAULT '0',
-  `created` int(11) DEFAULT '0',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `unique_index` (`user_id`,`message_id`),
-  KEY `message_id` (`message_id`),
-  CONSTRAINT `read_messages_ibfk_2` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `read_messages_ibfk_3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
+DELIMITER ;;
+/*!50003 SET SESSION SQL_MODE="NO_ENGINE_SUBSTITUTION" */;;
+/*!50003 CREATE */ /*!50017 DEFINER=`root`@`localhost` */ /*!50003 TRIGGER `unread_insert_trigger` AFTER INSERT ON `messages` FOR EACH ROW begin
+  insert into unreads (message_id, user_id)  SELECT new.id,members.user_id FROM members WHERE members.group_id = new.group_id AND members.blocked = 0 AND members.user_id != new.user_id ;
+end */;;
+DELIMITER ;
+/*!50003 SET SESSION SQL_MODE=@OLD_SQL_MODE */;
 
 
 # Dump of table secrets
@@ -200,6 +189,24 @@ CREATE TABLE `tokens` (
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `tokens_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
+# Dump of table unreads
+# ------------------------------------------------------------
+
+DROP TABLE IF EXISTS `unreads`;
+
+CREATE TABLE `unreads` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) unsigned DEFAULT '0',
+  `message_id` int(11) unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `message_id` (`message_id`),
+  CONSTRAINT `unreads_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `unreads_ibfk_2` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 

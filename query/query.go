@@ -126,17 +126,26 @@ var Query = graphql.NewObject(
 						return nil, errors.New("invalid id")
 					}
 
-					auth := model.GetAuth(p)
+					var auth *model.Auth
 
-					var userId int64
+					secret := p.Context.Value("secret")
 
-					if auth != nil {
-						userId = auth.UserId
+					if secret == nil {
+						auth = model.GetAuth(p)
+						if auth == nil {
+							return nil, errors.New("access denied")
+						}
+						userId := auth.UserId
+
+						canRead := model.UserCanReadMessage(userId, int64(id))
+						if !canRead {
+							return nil, errors.New("access denied")
+						}
+
 					}
 
 					message := &model.Message{
-						Id:     int64(id),
-						UserId: userId,
+						Id: int64(id),
 					}
 
 					result, err := message.Load()
@@ -151,6 +160,10 @@ var Query = graphql.NewObject(
 			"messages": &graphql.Field{
 				Type: graphql.NewList(model.MessageType),
 				Args: graphql.FieldConfigArgument{
+					"user_id": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
 					"group_id": &graphql.ArgumentConfig{
 						Type:         graphql.Int,
 						DefaultValue: 0,
@@ -167,17 +180,27 @@ var Query = graphql.NewObject(
 				Description: "Get messages list",
 				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
+					uid, ok := params.Args["group_id"].(int)
+					if !ok {
+						return nil, errors.New("access denied")
+					}
 					limit := params.Args["limit"].(int)
 					skip := params.Args["skip"].(int)
 					groupId, ok := params.Args["group_id"].(int)
-
 					if !ok {
 						return nil, errors.New("invalid group id")
 					}
-					var userId int64
+					userId := int64(uid)
+					var auth *model.Auth
 
-					auth := model.GetAuth(params)
-					if auth != nil {
+					secret := params.Context.Value("secret")
+
+					if secret == nil {
+						auth = model.GetAuth(params)
+
+						if auth == nil {
+							return nil, errors.New("access denied")
+						}
 						userId = auth.UserId
 					}
 
@@ -191,7 +214,10 @@ var Query = graphql.NewObject(
 			"group": &graphql.Field{
 				Type: model.GroupType,
 				Args: graphql.FieldConfigArgument{
-
+					"user_id": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
 					"id": &graphql.ArgumentConfig{
 						Type:         graphql.Int,
 						DefaultValue: 0,
@@ -199,15 +225,31 @@ var Query = graphql.NewObject(
 				},
 				Description: "Get group list",
 				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-					id, ok := params.Args["id"].(int)
+					uid, ok := params.Args["user_id"].(int)
+					if !ok {
+						return nil, errors.New("invalid user_id")
+					}
 
+					id, ok := params.Args["id"].(int)
 					if !ok {
 						return nil, errors.New("invalid group id")
 					}
 
-					var userId int64
+					var auth *model.Auth
 
-					auth := model.GetAuth(params)
+					secret := params.Context.Value("secret")
+
+					userId := int64(uid)
+
+					if secret == nil {
+						auth = model.GetAuth(params)
+						if auth == nil {
+							return nil, errors.New("access denied")
+						} else {
+							userId = auth.UserId
+						}
+
+					}
 
 					if auth != nil {
 						userId = auth.UserId
@@ -246,18 +288,27 @@ var Query = graphql.NewObject(
 					limit := params.Args["limit"].(int)
 					skip := params.Args["skip"].(int)
 					uid, ok := params.Args["user_id"].(int)
-					auth := model.GetAuth(params)
 
-					var userId int64
-					if auth != nil {
-						userId = auth.UserId
+					if !ok {
+						return nil, errors.New("invalid user_id")
 					}
 
-					if ok {
-						userId = int64(uid)
+					var auth *model.Auth
+
+					secret := params.Context.Value("secret")
+
+					userId := int64(uid)
+
+					if secret == nil {
+						auth = model.GetAuth(params)
+						if auth == nil {
+							return nil, errors.New("access denied")
+						} else {
+							userId = auth.UserId
+						}
+
 					}
 
-					fmt.Println("userId", userId)
 					result, err := model.Groups(search, userId, limit, skip)
 					if err != nil {
 						return nil, err

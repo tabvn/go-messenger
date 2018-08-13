@@ -374,7 +374,6 @@ func (u *User) Delete() (bool, error) {
 func VerifyToken(token string) (*Auth, error) {
 
 	if token == "" {
-
 		return nil, nil
 	}
 
