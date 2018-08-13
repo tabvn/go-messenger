@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 	"messenger/helper"
+	"errors"
 )
 
 type Message struct {
@@ -61,7 +62,33 @@ var MessageType = graphql.NewObject(
 	},
 )
 
-func (m *Message) Create() (*Message, error) {
+func UserCanSendMessage(userId int64, groupId int64) (bool) {
+
+	q := `SELECT COUNT(*) FROM members WHERE user_id = ? AND group_id = ? AND blocked = 0`
+
+	row, err := db.DB.FindOne(q, userId, groupId)
+
+	if err != nil {
+		return false
+	}
+
+	var count int64
+	if row.Scan(&count) != nil {
+		return false
+	}
+
+	if count > 0 {
+		return true
+	}
+
+	return false
+}
+
+func (m *Message) Create() (error) {
+
+	if !UserCanSendMessage(m.UserId, m.GroupId) {
+		return errors.New("user is not member of group or blocked")
+	}
 
 	query := `INSERT INTO messages (user_id, group_id, body, emoji, created, updated) VALUES (?, ?, ?, ?, ?, ?)`
 
@@ -74,7 +101,7 @@ func (m *Message) Create() (*Message, error) {
 	insertedId, err := db.DB.Insert(query, m.UserId, m.GroupId, m.Body, m.Emoji, m.Created, m.Updated)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for index, attachment := range m.Attachments {
@@ -94,7 +121,7 @@ func (m *Message) Create() (*Message, error) {
 
 	m.Id = insertedId
 
-	return m, err
+	return err
 }
 
 func (m *Message) Update() (*Message, error) {

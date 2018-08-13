@@ -424,6 +424,9 @@ func FindOrCreateGroup(requestUserId int64, userIds [] int64, title, avatar stri
 		}
 
 		return group, nil
+	} else {
+
+		fmt.Println("handle create new group...", userIds)
 	}
 
 	return nil, nil

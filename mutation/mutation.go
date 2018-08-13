@@ -370,6 +370,10 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			Type:        model.MessageType,
 			Description: "Create new message",
 			Args: graphql.FieldConfigArgument{
+				"user_id": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 0,
+				},
 				"group_id": &graphql.ArgumentConfig{
 					Type:         graphql.NewNonNull(graphql.Int),
 					DefaultValue: "",
@@ -384,19 +388,37 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			},
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
-				auth := model.GetAuth(params)
-				if auth == nil {
-					return nil, errors.New("access denied")
-				}
-
-				userId := auth.UserId
 				groupId, ok := params.Args["group_id"].(int)
+				uid, uOk := params.Args["user_id"].(int)
+				if !uOk {
+					return nil, errors.New("invalid user_id")
+				}
 
 				if !ok {
 
 					return nil, errors.New("invalid group id")
 
 				}
+
+				var auth *model.Auth
+				userId := int64(uid)
+
+				// allow super or authenticated user
+				secret := params.Context.Value("secret")
+				if secret == nil {
+					auth = model.GetAuth(params)
+					if auth == nil {
+						return nil, errors.New("access denied")
+					} else {
+						// only allow user_id from auth if not secret
+						userId = auth.UserId
+					}
+				}
+				if userId == 0 {
+
+					return nil, errors.New("user not found")
+				}
+
 				message := &model.Message{
 					UserId:  userId,
 					GroupId: int64(groupId),
@@ -405,13 +427,13 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				}
 
 				fmt.Println("messgae", message)
-				result, err := message.Create()
+				err := message.Create()
 
 				if err != nil {
 					return nil, err
 				}
 
-				return result, err
+				return message, err
 
 			},
 		},
@@ -504,6 +526,11 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			Type:        model.GroupType,
 			Description: "create group",
 			Args: graphql.FieldConfigArgument{
+				"user_id": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 0,
+					Description:  "user_id owner of group",
+				},
 				"user_ids": &graphql.ArgumentConfig{
 					Type: graphql.NewList(graphql.Int),
 				},
@@ -518,32 +545,45 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			},
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
+				uid := params.Args["user_id"].(int)
 				userIdInput := params.Args["user_ids"]
 				title := params.Args["title"].(string)
 				avatar := params.Args["avatar"].(string)
 
 				userIds := helper.GetIds(userIdInput)
 
-				auth := model.GetAuth(params)
+				secret := params.Context.Value("secret")
 
-				if auth == nil {
-					return nil, errors.New("access denied")
-				}
+				userId := int64(uid)
 
-				var hasAuthorInList = false
+				var auth *model.Auth
 
-				for _, id := range userIds {
-					if id == auth.UserId {
-						hasAuthorInList = true
-						break
+				if secret == nil {
+					auth = model.GetAuth(params)
+
+					if auth == nil {
+						return nil, errors.New("access denied")
 					}
-				}
 
-				if !hasAuthorInList {
-					userIds = append(userIds, auth.UserId)
-				}
+					userId = auth.UserId
 
-				group, err := model.FindOrCreateGroup(auth.UserId, userIds, title, avatar)
+					if userId > 0 {
+						var hasAuthorInList = false
+
+						for _, id := range userIds {
+							if id == auth.UserId {
+								hasAuthorInList = true
+								break
+							}
+						}
+
+						if !hasAuthorInList {
+							userIds = append(userIds, auth.UserId)
+						}
+					}
+
+				}
+				group, err := model.FindOrCreateGroup(userId, userIds, title, avatar)
 
 				if err != nil {
 					return nil, errors.New("error")
