@@ -183,6 +183,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				result := map[string]interface{}{
 					"id":      token.Id,
 					"token":   token.Token,
+					"user_id": token.UserId,
 					"created": token.Created,
 					"user":    user,
 				}
@@ -323,6 +324,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				r := map[string]interface{}{
 					"id":      token.Id,
 					"token":   token.Token,
+					"user_id": token.UserId,
 					"created": token.Created,
 					"user":    user,
 				}

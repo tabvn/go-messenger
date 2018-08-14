@@ -107,6 +107,9 @@ var LoginType = graphql.NewObject(
 			"token": &graphql.Field{
 				Type: graphql.String,
 			},
+			"user_id": &graphql.Field{
+				Type: graphql.ID,
+			},
 			"created": &graphql.Field{
 				Type: graphql.Int,
 			},

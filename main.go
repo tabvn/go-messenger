@@ -49,8 +49,23 @@ func Setup() {
 	}
 
 }
+
+func enableCors(w *http.ResponseWriter) {
+
+	(*w).Header().Set("Content-Type", "application/json; charset=utf-8")
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+}
+
 func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 
+	enableCors(&w)
+
+	if (*r).Method == "OPTIONS" {
+		return
+	}
 	if r.Method == "GET" {
 		if !IsProduction {
 			// Render GraphIQL
@@ -89,10 +104,6 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 
 	result := schema.ExecuteQuery(ctx, p.Query, p.OperationName, schema.Schema)
 
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
 

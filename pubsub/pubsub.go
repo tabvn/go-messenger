@@ -9,7 +9,7 @@ var PUBLISH = "publish"
 var SUBSCRIBE = "subscribe"
 
 type PubSub struct {
-	Clients       [] Client
+	Clients       [] *Client
 	Subscriptions [] Subscription
 }
 
@@ -33,7 +33,7 @@ type Subscription struct {
 	Client *Client
 }
 
-func (p *PubSub) AddClient(client Client) (*PubSub) {
+func (p *PubSub) AddClient(client *Client) (*PubSub) {
 
 	clients := append(p.Clients, client)
 
@@ -42,7 +42,7 @@ func (p *PubSub) AddClient(client Client) (*PubSub) {
 	return p
 }
 
-func (p *PubSub) RemoveClient(client Client) (*PubSub) {
+func (p *PubSub) RemoveClient(client *Client) (*PubSub) {
 
 	// remove client's subscriptions
 	for i := 0; i < len(p.Subscriptions); i++ {

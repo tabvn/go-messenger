@@ -26,7 +26,7 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	defer c.Close()
 
 	// add new client
-	client := Client{
+	client := &Client{
 		Id:   id,
 		Conn: c,
 	}
@@ -40,12 +40,15 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 
 			// handle remove client and subscriptions
 			Instance.RemoveClient(client)
+			
+			client = nil
 
 			break
 		}
+
 		log.Printf("recv: %s, clients: %d", message, len(Instance.Clients))
 
-		Instance.HandleReceivedMessage(&client, mt, message)
+		Instance.HandleReceivedMessage(client, mt, message)
 
 		if err != nil {
 			log.Println("write:", err)
