@@ -16,18 +16,36 @@ var Query = graphql.NewObject(
 				Description: "Get user by id",
 				Args: graphql.FieldConfigArgument{
 					"id": &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Int),
+						Type:         graphql.Int,
+						DefaultValue: 0,
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 
 					id, ok := p.Args["id"].(int)
+
 					if !ok {
 						return nil, errors.New("invalid id")
 					}
 
+					var auth *model.Auth
+					userId := int64(id)
+
+					// allow super or authenticated user
+					secret := p.Context.Value("secret")
+					if secret == nil {
+						auth = model.GetAuth(p)
+						if auth == nil {
+							return nil, errors.New("access denied")
+						}
+
+						if userId == 0 {
+							userId = auth.UserId
+						}
+					}
+
 					user := &model.User{
-						Id: int64(id),
+						Id: userId,
 					}
 
 					result, err := user.Load()
@@ -35,7 +53,16 @@ var Query = graphql.NewObject(
 					if err != nil {
 						return nil, err
 					}
+					if result == nil {
+						return nil, errors.New("not found")
+					}
+
 					result.Password = ""
+
+					if secret == nil && auth.UserId != result.Id {
+						// dont show email to other
+						result.Email = ""
+					}
 
 					return result, err
 				},

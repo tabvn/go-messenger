@@ -557,6 +557,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				userIdInput := params.Args["participants"]
 
 				userIds := helper.GetIds(userIdInput)
+
 				attachments := helper.GetIds(params.Args["attachments"])
 				messageGif := params.Args["gif"].(string)
 				messageBody := params.Args["body"].(string)
@@ -592,6 +593,10 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 						}
 					}
 
+				}
+
+				if len(userIds) < 2 {
+					return nil, errors.New("must have more than 1 member in conversation")
 				}
 				group, err := model.CreateConversation(userId, userIds, messageBody, messageGif, messageEmoji, attachments)
 

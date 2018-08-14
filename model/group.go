@@ -148,7 +148,16 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 			}
 		}
 
-		if group != nil && group.Id == id {
+		groupIsExist := false
+
+		for _, g := range groups {
+			if g.Id == id {
+				groupIsExist = true
+				break
+			}
+		}
+
+		if group != nil && groupIsExist {
 
 			// has group now find all message and insert to group
 			// #1 find attachment
