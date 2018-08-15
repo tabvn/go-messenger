@@ -52,7 +52,7 @@ func Setup() {
 
 func enableCors(w *http.ResponseWriter) {
 
-	(*w).Header().Set("Content-Type", "application/json; charset=utf-8")
+
 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
 	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
@@ -76,6 +76,8 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(content)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	p, err := getBodyFromRequest(r)
 

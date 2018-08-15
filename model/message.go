@@ -409,6 +409,8 @@ func CreateConversation(authorId int64, userIds []int64, messageBody string, mes
 
 	gid, err := FindOrCreateGroup(authorId, userIds, "", "")
 
+
+
 	if err != nil {
 		return nil, err
 	}

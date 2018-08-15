@@ -77,9 +77,14 @@ func InitDatabase(url string) (*Database, error) {
 
 func (db *Database) Insert(query string, args ...interface{}) (int64, error) {
 
-	stmt, _ := DB.Prepare(query)
+	stmt, prepareErr := DB.Prepare(query)
+
+	if prepareErr != nil {
+		return 0, prepareErr
+	}
 
 	r, err := stmt.Exec(args...)
+
 	if err != nil {
 		return 0, fmt.Errorf("%v", err)
 	}
@@ -102,8 +107,11 @@ func (db *Database) Insert(query string, args ...interface{}) (int64, error) {
 
 func (db *Database) InsertMany(query string, args ...interface{}) (int64, error) {
 
-	stmt, _ := DB.Prepare(query)
+	stmt, prepareErr := DB.Prepare(query)
 
+	if prepareErr != nil {
+		return 0, prepareErr
+	}
 	r, err := stmt.Exec(args...)
 	if err != nil {
 		return 0, fmt.Errorf("%v", err)
@@ -115,7 +123,10 @@ func (db *Database) InsertMany(query string, args ...interface{}) (int64, error)
 }
 func (db *Database) Update(query string, args ...interface{}) (int64, error) {
 
-	stmt, _ := DB.conn.Prepare(query)
+	stmt, e := DB.conn.Prepare(query)
+	if e != nil {
+		return 0, e
+	}
 
 	r, err := stmt.Exec(args...)
 	if err != nil {
@@ -158,14 +169,16 @@ func (db *Database) Get(table string, id int64) (*sql.Row, error) {
 	query := "SELECT * FROM " +
 		table +
 		" WHERE id = ?"
-	stmt, _ := DB.conn.Prepare(query)
+	stmt, e := DB.conn.Prepare(query)
+	if e != nil {
+		return nil, e
+	}
+
 	row := stmt.QueryRow(id)
 	return row, nil
 
 }
 func (db *Database) FindOne(query string, args ...interface{}) (*sql.Row, error) {
-
-	println("args", args)
 
 	stmt, err := DB.Prepare(query)
 

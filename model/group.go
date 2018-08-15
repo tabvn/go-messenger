@@ -19,7 +19,7 @@ type Group struct {
 	Updated  int64  `json:"updated"`
 	Users    [] *User
 	Messages [] *Message
-	Unread   int64  `json:"unread"`
+	Unread   int64 `json:"unread"`
 }
 
 var GroupType = graphql.NewObject(
@@ -61,6 +61,7 @@ var GroupType = graphql.NewObject(
 func scanGroup(rows *sql.Rows) ([] *Group, error) {
 
 	var (
+		memberGroupId       sql.NullInt64
 		id                  int64
 		userId              int64
 		title               sql.NullString
@@ -73,7 +74,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 		messageGroupId      sql.NullInt64
 		messageBody         sql.NullString
 		messageEmoji        sql.NullBool
-		messageUnread       sql.NullBool
+		messageUnread       sql.NullInt64
 		messageCreated      sql.NullInt64
 		messageUpdated      sql.NullInt64
 		attachmentId        sql.NullInt64
@@ -101,7 +102,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 		var attachment *Attachment
 		var user *User
 
-		if err := rows.Scan(&id, &userId, &title, &avatar, &created, &updated, &messageId, &messageUserId, &messageGroupId, &messageBody, &messageEmoji,
+		if err := rows.Scan(&memberGroupId, &id, &userId, &title, &avatar, &created, &updated, &messageId, &messageUserId, &messageGroupId, &messageBody, &messageEmoji,
 			&messageCreated, &messageUpdated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize,
 			&uUserId, &uid, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &unread, &messageUnread,
 		);
@@ -109,8 +110,14 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 			fmt.Println("Scan message error", err)
 		}
 
+		fmt.Println("scan row", id, memberGroupId)
 		if messageId.Int64 > 0 {
 			// has message
+
+			isUnread := false
+			if messageUnread.Int64 > 0 {
+				isUnread = true
+			}
 			message = &Message{
 				Id:      messageId.Int64,
 				GroupId: messageGroupId.Int64,
@@ -119,7 +126,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 				Emoji:   messageEmoji.Bool,
 				Created: messageCreated.Int64,
 				Updated: messageUpdated.Int64,
-				Unread:  messageUnread.Bool,
+				Unread:  isUnread,
 			}
 		}
 
@@ -182,7 +189,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 				}
 
 				// check if user in group
-				if uUserId.Valid {
+				if uUserId.Valid && memberGroupId.Int64 == g.Id {
 					hasUser := false
 
 					for _, u := range g.Users {
@@ -235,7 +242,7 @@ func LoadGroup(id int64, userId int64) (*Group, error) {
 
 	var rows *sql.Rows
 	query := `
-		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
+		SELECT m.group_id, g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, f.name, f.original, f.type,
 		f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
 		(SELECT COUNT(DISTINCT cm.id) 
@@ -267,6 +274,41 @@ func LoadGroup(id int64, userId int64) (*Group, error) {
 
 }
 
+func searchGroups(search string, userId int64, limit, skip int) ([]int64, error) {
+
+	searchLike := `"%` + search + `%"`
+
+	q := `SELECT g.id FROM members as m INNER JOIN groups as g ON m.group_id = g.id AND m.user_id =? AND m.blocked = 0 
+		INNER JOIN users as u ON u.id = m.user_id INNER JOIN messages as msg ON msg.group_id = g.id  
+		WHERE g.title like ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR MATCH(msg.body) AGAINST(?) 
+		GROUP BY g.id ORDER BY msg.created DESC LIMIT ? OFFSET ?`
+
+	r, err := db.DB.List(q, userId, searchLike, searchLike, searchLike, search, limit, skip)
+
+	var ids []int64
+
+	if err != nil {
+		return ids, err
+	}
+
+	var scanId sql.NullInt64
+
+	for r.Next() {
+		err := r.Scan(&scanId)
+		if err != nil {
+			fmt.Println("scan group id error", err)
+		}
+
+		if scanId.Int64 > 0 {
+			ids = append(ids, scanId.Int64)
+		}
+	}
+
+	fmt.Println("f", ids)
+
+	return ids, nil
+}
+
 func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) {
 
 	var rows *sql.Rows
@@ -275,7 +317,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 
 	if search == "" {
 		query = `
-		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
+		SELECT m.group_id, g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, f.name, f.original, f.type,
 		f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
 		(SELECT COUNT(DISTINCT cm.id) 
@@ -294,41 +336,78 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 	`
 
 		rows, err = db.DB.List(query, userId, userId, limit, skip)
+		if err != nil {
+			return nil, err
+		}
+
+		result, errScan := scanGroup(rows)
+
+		if errScan != nil {
+			return nil, errScan
+		}
+
+		return result, nil
+
 	} else {
 
-		searchLike := "%" + search + "%"
+		ids, err := searchGroups(search, userId, limit, skip)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if len(ids) == 0 {
+			return nil, nil
+		}
+
+		whereInString := "("
+
+		for index, i := range ids {
+			if index == 0 {
+				whereInString += fmt.Sprintf("%d", i)
+			} else {
+				whereInString += fmt.Sprintf(",%d", i)
+			}
+		}
+		whereInString += ")"
 
 		query = `
-		SELECT g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
-		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, f.name, f.original, f.type,
-		f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
-		(SELECT COUNT(DISTINCT cm.id) 
-        FROM messages cm WHERE cm.group_id = g.id AND cm.id IN (SELECT message_id FROM unreads WHERE message_id = cm.id  AND user_id =? )
-       ) as unread,
-       	r.id as mread
-		FROM groups as g 
-		INNER JOIN members AS m ON m.group_id = g.id
-		LEFT JOIN users as u ON u.id = m.user_id 
-		LEFT JOIN messages as message ON message.group_id = g.id 
-		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
-		LEFT JOIN unreads as r ON r.message_id = message.id AND r.user_id = message.user_id
-		LEFT JOIN attachments as a ON a.message_id = message.id 
-		LEFT JOIN files as f ON a.file_id = f.id
-		INNER JOIN (SELECT gr.id FROM groups as gr INNER JOIN members as mb ON gr.id = mb.group_id AND mb.blocked = 0 
-		AND mb.user_id =? INNER JOIN messages as msg ON msg.group_id = gr.id GROUP BY gr.id ORDER BY msg.id DESC LIMIT ? OFFSET ?) as grj ON grj.id = g.id
-		WHERE g.title like ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR MATCH(message.body) AGAINST(?)
-		`
+			SELECT m.group_id, g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id,
+			message.body, message.emoji, message.created, message.updated, a.id, a.message_id, f.name, f.original, f.type,
+			f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
+			(SELECT COUNT(DISTINCT cm.id)
+			FROM messages cm WHERE cm.group_id = g.id AND cm.id IN (SELECT message_id FROM unreads WHERE message_id = cm.id  AND user_id =? )
+		   ) as unread, r.id as mread
+			FROM groups as g
+			INNER JOIN members AS m ON m.group_id = g.id
+			LEFT JOIN users as u ON u.id = m.user_id
+			LEFT JOIN messages as message ON message.group_id = g.id
+			AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id )
+			LEFT JOIN unreads as r ON r.message_id = message.id AND r.user_id = message.user_id
+			LEFT JOIN attachments as a ON a.message_id = message.id
+			LEFT JOIN files as f ON a.file_id = f.id
+			WHERE g.id in %s
+			`
 
-		rows, err = db.DB.List(query, userId, userId, limit, skip, searchLike, searchLike, searchLike, search)
+		query = fmt.Sprintf(query, whereInString)
+
+		rr, e := db.DB.List(query, userId)
+
+		if e != nil {
+
+			return nil, err
+		}
+
+		result, err := scanGroup(rr)
+		if err != nil {
+			return nil, err
+		}
+
+		return result, nil
+
 	}
 
-	result, err := scanGroup(rows)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return nil, nil
 
 }
 
@@ -441,7 +520,7 @@ func FindOrCreateGroup(authorId int64, userIds [] int64, title, avatar string) (
 
 		unixTime := helper.GetUnixTimestamp()
 
-		createGroupQuery := `INSERT INTO groups (userId, title, avatar, created, updated) VALUES (?,?,?,?,?)`
+		createGroupQuery := `INSERT INTO groups (user_id, title, avatar, created, updated) VALUES (?,?,?,?,?)`
 
 		gid, createErr := db.DB.Insert(createGroupQuery, authorId, title, avatar, unixTime, unixTime)
 
@@ -457,26 +536,32 @@ func FindOrCreateGroup(authorId int64, userIds [] int64, title, avatar string) (
 			uid := userIds[i]
 
 			if i == 0 {
-				str := fmt.Sprintf("(%d, %d, %d, %d)", uid, groupId, 0, unixTime)
+				str := fmt.Sprintf("(%d, %d, %d, %d)", uid, gid, 0, unixTime)
 				values += str
 			} else {
-				values += fmt.Sprintf(", (%d, %d, %d, %d)", uid, groupId, 0, unixTime)
+				values += fmt.Sprintf(", (%d, %d, %d, %d)", uid, gid, 0, unixTime)
 			}
 
 		}
 
-		createMemberQuery := `INSERT INTO members (userId, groupId, blocked, created) values ` + values
+		createMemberQuery := `INSERT INTO members (user_id, group_id, blocked, created) values ` + values
 
 		numRows, createMemberErr := db.DB.InsertMany(createMemberQuery)
+
 		if createMemberErr != nil {
-			db.DB.Delete(`DELETE groups WHERE id =? `, gid)
+
+			fmt.Println("cm", createMemberErr, gid)
+
+			defer db.DB.Delete(`DELETE FROM groups WHERE id =? `, gid)
+
 			return 0, createMemberErr
+
 		}
 		if numRows == int64(len(userIds)) {
 			return gid, nil
 		} else {
 			// delete group
-			db.DB.Delete(`DELETE groups WHERE id =? `, gid)
+			defer db.DB.Delete(`DELETE FROM groups WHERE id =? `, gid)
 		}
 
 	}

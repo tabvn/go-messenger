@@ -6,6 +6,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"errors"
 	"fmt"
+	"database/sql"
 )
 
 type FriendShip struct {
@@ -81,11 +82,35 @@ func UnFriend(userId, friendId int64) (bool, error) {
 	return false, nil
 }
 
-func Friends(userId int64, limit, skip int) ([] *User, error) {
+func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 
-	q := `SELECT u.*, f.id, b.id FROM friendship as f INNER JOIN users as u ON f.friend_id = u.id LEFT JOIN blocked as b ON b.author = ? AND b.user = u.id WHERE f.user_id = ? ORDER BY f.created DESC LIMIT ? OFFSET ?`
+	var rows *sql.Rows
+	var err error
 
-	rows, err := db.DB.List(q, userId, userId, limit, skip)
+	q := ""
+
+	if search == "" {
+		q = `SELECT u.*, f.id, b.id 
+		FROM friendship as f 
+		INNER JOIN users as u ON f.friend_id = u.id 
+		LEFT JOIN blocked as b ON b.author = ? AND b.user = u.id 
+		WHERE f.user_id = ? ORDER BY f.created DESC LIMIT ? OFFSET ?`
+		rows, err = db.DB.List(q, userId, userId, limit, skip)
+
+	} else {
+
+		// search
+		q = `SELECT u.*, f.id, b.id 
+			FROM friendship as f 
+			INNER JOIN users as u ON f.friend_id = u.id 
+			LEFT JOIN blocked as b ON b.author = ? AND b.user = u.id 
+			WHERE f.user_id = ? AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?)ORDER BY f.created DESC LIMIT ? OFFSET ?`
+
+		search = `"%` + search + `%"`
+
+		rows, err = db.DB.List(q, userId, userId, search, search, search, limit, skip)
+
+	}
 
 	if err != nil {
 		return nil, err
