@@ -110,7 +110,6 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 			fmt.Println("Scan message error", err)
 		}
 
-		fmt.Println("scan row", id, memberGroupId)
 		if messageId.Int64 > 0 {
 			// has message
 
@@ -276,7 +275,7 @@ func LoadGroup(id int64, userId int64) (*Group, error) {
 
 func searchGroups(search string, userId int64, limit, skip int) ([]int64, error) {
 
-	searchLike := `"%` + search + `%"`
+	searchLike := `%` + search + `%`
 
 	q := `SELECT g.id FROM members as m INNER JOIN groups as g ON m.group_id = g.id AND m.user_id =? AND m.blocked = 0 
 		INNER JOIN users as u ON u.id = m.user_id INNER JOIN messages as msg ON msg.group_id = g.id  

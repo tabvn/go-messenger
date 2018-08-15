@@ -865,7 +865,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			Args: graphql.FieldConfigArgument{
 				"user": &graphql.ArgumentConfig{
 					Description:  "block user",
-					Type:         graphql.NewNonNull(graphql.Int),
+					Type:         graphql.Int,
 					DefaultValue: 0,
 				},
 				"friend": &graphql.ArgumentConfig{
@@ -906,10 +906,11 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 					}
 				}
+
 				result, err := model.BlockUser(uid, friend)
 
 				if err != nil {
-					return false, err
+					return false, errors.New("an error block user")
 				}
 
 				return result, err
@@ -922,7 +923,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			Args: graphql.FieldConfigArgument{
 				"user": &graphql.ArgumentConfig{
 					Description:  "block user",
-					Type:         graphql.NewNonNull(graphql.Int),
+					Type:         graphql.Int,
 					DefaultValue: 0,
 				},
 				"friend": &graphql.ArgumentConfig{
@@ -967,7 +968,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				result, err := model.UnBlockUser(uid, friend)
 
 				if err != nil {
-					return false, err
+					return false, errors.New("an error")
 				}
 
 				return result, err
