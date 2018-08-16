@@ -92,7 +92,7 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 		FROM friendship as f 
 		INNER JOIN users as u ON f.friend_id = u.id 
 		LEFT JOIN blocked as b ON b.author = ? AND b.user = u.id 
-		WHERE f.user_id = ? ORDER BY f.created DESC LIMIT ? OFFSET ?`
+		WHERE f.user_id = ? AND f.status = 1 ORDER BY f.created DESC LIMIT ? OFFSET ?`
 		rows, err := db.DB.List(q, userId, userId, limit, skip)
 
 		if err != nil {
@@ -117,7 +117,8 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 			FROM friendship as f 
 			INNER JOIN users as u ON f.friend_id = u.id 
 			LEFT JOIN blocked as b ON b.author = ? AND b.user = u.id 
-			WHERE f.user_id = ? AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?) ORDER BY f.created DESC LIMIT ? OFFSET ?`
+			WHERE f.user_id = ? AND f.status = 1 AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?) 
+			ORDER BY f.created DESC LIMIT ? OFFSET ?`
 
 		search = `%` + search + `%`
 

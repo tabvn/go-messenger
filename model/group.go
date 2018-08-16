@@ -331,7 +331,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		LEFT JOIN attachments as a ON a.message_id = message.id 
 		LEFT JOIN files as f ON a.file_id = f.id
 		INNER JOIN (SELECT gr.id FROM groups as gr INNER JOIN members as mb ON gr.id = mb.group_id AND mb.blocked = 0
-		AND mb.user_id =? INNER JOIN messages as msg ON msg.group_id = gr.id GROUP BY gr.id ORDER BY msg.id DESC LIMIT ? OFFSET ?) as grj ON grj.id = g.id
+		AND mb.user_id =? INNER JOIN messages as msg ON msg.group_id = gr.id GROUP BY gr.id ORDER BY msg.created DESC LIMIT ? OFFSET ?) as grj ON grj.id = g.id
 	`
 
 		rows, err = db.DB.List(query, userId, userId, limit, skip)

@@ -116,6 +116,7 @@ func main() {
 	http.HandleFunc("/api", graphqlHandler)
 	http.HandleFunc("/ws", pubsub.WebSocketHandler)
 	http.HandleFunc("/files", upload.HandleFileUpload)
+	http.HandleFunc("/attachment", model.HandleViewAttachment)
 
 	const PORT = 3007
 

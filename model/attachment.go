@@ -1,6 +1,11 @@
 package model
 
-import "github.com/graphql-go/graphql"
+import (
+	"github.com/graphql-go/graphql"
+	"net/http"
+	"messenger/db"
+	"database/sql"
+)
 
 type Attachment struct {
 	Id        int64  `json:"id"`
@@ -37,3 +42,47 @@ var AttachmentType = graphql.NewObject(
 		},
 	},
 )
+
+func enableCors(w *http.ResponseWriter) {
+
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+}
+
+func HandleViewAttachment(w http.ResponseWriter, r *http.Request) {
+
+	enableCors(&w)
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	row, err := db.DB.FindOne("SELECT COUNT(*) as count FROM files WHERE name = ?", name)
+	if err != nil {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	var count sql.NullInt64
+
+	if row.Scan(&count) != nil {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	if count.Int64 > 0 {
+		http.ServeFile(w, r, "storage/"+name)
+		return
+	}
+
+	http.Error(w, "access denied", http.StatusForbidden)
+	return
+
+}
+
+func serveFile(path string, w http.ResponseWriter, r *http.Request) {
+
+}
