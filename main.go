@@ -117,6 +117,7 @@ func main() {
 	http.HandleFunc("/ws", pubsub.WebSocketHandler)
 	http.HandleFunc("/files", upload.HandleFileUpload)
 	http.HandleFunc("/attachment", model.HandleViewAttachment)
+	http.HandleFunc("/group/avatar", model.HandleViewGroupAvatar)
 
 	const PORT = 3007
 

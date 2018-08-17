@@ -83,6 +83,38 @@ func HandleViewAttachment(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func HandleViewGroupAvatar(w http.ResponseWriter, r *http.Request) {
+
+	enableCors(&w)
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	row, err := db.DB.FindOne("SELECT COUNT(*) as count FROM groups WHERE avatar = ?", name)
+	if err != nil {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	var count sql.NullInt64
+
+	if row.Scan(&count) != nil {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	if count.Int64 > 0 {
+		http.ServeFile(w, r, "storage/"+name)
+		return
+	}
+
+	http.Error(w, "access denied", http.StatusForbidden)
+	return
+
+}
+
 func serveFile(path string, w http.ResponseWriter, r *http.Request) {
 
 }
