@@ -329,7 +329,7 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 
 	unixTime := helper.GetUnixTimestamp()
 	messageId, err := db.DB.Insert(`INSERT INTO messages (group_id, user_id, body, emoji, gif, created, updated) VALUES (?,?,?,?,?,?,?)`,
-		groupId, userId, body, gif, emoji, unixTime, unixTime)
+		groupId, userId, body, emoji, gif, unixTime, unixTime)
 
 	fmt.Println("got message id created", messageId, err)
 	if err != nil {
