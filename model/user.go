@@ -502,11 +502,28 @@ func LogoutUser(token string) (bool, error) {
 	return success, nil
 }
 
-func Users(userId int64, limit int, skip int) ([]*User, error) {
+func Users(userId int64, search string, limit int, skip int) ([]*User, error) {
 
-	q := `SELECT u.*, f.id, b.id friendship FROM users as u LEFT JOIN friendship as f ON  f.friend_id = u.id AND f.user_id =? AND f.status = 1 LEFT JOIN blocked as b ON b.author =? AND b.user = u.id ORDER BY created DESC LIMIT ? OFFSET ?`
+	var rows *sql.Rows
+	var err error
 
-	rows, err := db.DB.List(q, userId, userId, limit, skip)
+	if search == "" {
+
+		q := `SELECT u.*, f.id, b.id friendship FROM users as u 
+			LEFT JOIN friendship as f ON  f.friend_id = u.id AND f.user_id =? AND f.status = 1 
+			LEFT JOIN blocked as b ON b.author =? AND b.user = u.id ORDER BY created DESC LIMIT ? OFFSET ?`
+
+		rows, err = db.DB.List(q, userId, userId, limit, skip)
+	} else {
+
+		like := "%" + search + "%"
+		q := `SELECT u.*, f.id, b.id friendship FROM users as u 
+			LEFT JOIN friendship as f ON  f.friend_id = u.id AND f.user_id =? AND f.status = 1 
+			LEFT JOIN blocked as b ON b.author =? AND b.user = u.id 
+			WHERE u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?
+			ORDER BY created DESC LIMIT ? OFFSET ?`
+		rows, err = db.DB.List(q, userId, userId, like, like, like, limit, skip)
+	}
 
 	if err != nil {
 		return nil, err

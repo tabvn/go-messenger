@@ -441,18 +441,16 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			Type:        graphql.Boolean,
 			Description: "Mark message as read",
 			Args: graphql.FieldConfigArgument{
+				"group_id": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 0,
+				},
 				"ids": &graphql.ArgumentConfig{
 					Type:         graphql.NewList(graphql.Int),
 					DefaultValue: []int{},
 				},
 			},
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
-
-				inputIds, ok := params.Args["ids"]
-
-				if !ok {
-					return nil, errors.New("invalid id")
-				}
 
 				var auth *model.Auth
 
@@ -461,6 +459,28 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				if auth == nil {
 					return nil, errors.New("access denied")
 				}
+
+				gid, ok := params.Args["group_id"].(int)
+
+				if !ok {
+					return nil, errors.New("invalid group_id")
+				}
+
+				groupId := int64(gid)
+				if groupId > 0 {
+					err := model.MarkAsReadByGroup(groupId, auth.UserId)
+					if err != nil {
+						return false, errors.New("an error")
+					}
+					return true, nil
+				}
+
+				inputIds, ok := params.Args["ids"]
+
+				if !ok {
+					return nil, errors.New("invalid id")
+				}
+
 				ids := helper.GetIds(inputIds)
 
 				defer func() {

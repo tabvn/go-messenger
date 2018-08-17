@@ -314,6 +314,17 @@ func MarkMessageAsRead(id int64, userId int64) (error) {
 	return err
 }
 
+func MarkAsReadByGroup(groupId int64, userId int64) (error) {
+
+	q := `DELETE u.* FROM unreads as u INNER JOIN messages as m ON u.message_id = m.id AND m.group_id =? WHERE u.user_id =?`
+
+	_, err := db.DB.DeleteMany(q, groupId, userId)
+
+	fmt.Println(err)
+
+	return err
+}
+
 func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif string, attachments [] int64) (*Message, error) {
 
 	unixTime := helper.GetUnixTimestamp()
@@ -408,8 +419,6 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 func CreateConversation(authorId int64, userIds []int64, messageBody string, messageGif string, messageEmoji bool, attachments [] int64) (*Group, error) {
 
 	gid, err := FindOrCreateGroup(authorId, userIds, "", "")
-
-
 
 	if err != nil {
 		return nil, err

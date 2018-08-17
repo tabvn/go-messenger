@@ -72,7 +72,10 @@ var Query = graphql.NewObject(
 				Type:        graphql.NewList(model.UserType),
 				Description: "Get user list",
 				Args: graphql.FieldConfigArgument{
-
+					"search": &graphql.ArgumentConfig{
+						Type:         graphql.String,
+						DefaultValue: "",
+					},
 					"user_id": &graphql.ArgumentConfig{
 						Type:         graphql.Int,
 						DefaultValue: 0,
@@ -97,6 +100,7 @@ var Query = graphql.NewObject(
 					}
 					limit := params.Args["limit"].(int)
 					skip := params.Args["skip"].(int)
+					search := params.Args["search"].(string)
 
 					userId := int64(uid)
 
@@ -111,7 +115,7 @@ var Query = graphql.NewObject(
 						}
 					}
 
-					users, err := model.Users(userId, limit, skip)
+					users, err := model.Users(userId, search, limit, skip)
 
 					if secret == nil {
 						for _, u := range users {
