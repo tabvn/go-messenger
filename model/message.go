@@ -416,9 +416,9 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 	return nil, errors.New("unknown error")
 }
 
-func CreateConversation(authorId int64, userIds []int64, messageBody string, messageGif string, messageEmoji bool, attachments [] int64) (*Group, error) {
+func CreateConversation(authorId int64, userIds []int64, messageBody string, messageGif string, messageEmoji bool, attachments [] int64, title, avatar string) (*Group, error) {
 
-	gid, err := FindOrCreateGroup(authorId, userIds, "", "")
+	gid, err := FindOrCreateGroup(authorId, userIds, title, avatar)
 
 	if err != nil {
 		return nil, err

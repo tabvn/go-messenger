@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strconv"
 	"messenger/upload"
+	"github.com/rs/cors"
 )
 
 const (
@@ -50,22 +51,8 @@ func Setup() {
 
 }
 
-func enableCors(w *http.ResponseWriter) {
-
-
-	(*w).Header().Set("Access-Control-Allow-Origin", "*")
-	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-
-}
-
 func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 
-	enableCors(&w)
-
-	if (*r).Method == "OPTIONS" {
-		return
-	}
 	if r.Method == "GET" {
 		if !IsProduction {
 			// Render GraphIQL
@@ -74,6 +61,7 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		content := []byte (`I'm Go!`)
 		w.Write(content)
+
 		return
 	}
 
@@ -111,19 +99,39 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		//w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("{\"messenger\": \"v.1.0\"}"))
+	})
+
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowCredentials: true,
+		AllowedMethods:   []string{"POST", "GET", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization"},
+		// Enable Debugging for testing, consider disabling in production
+		Debug: false,
+	})
+
+	// Use default options
+	handler := c.Handler(mux)
+
 	Setup()
 	// Router api graphQL handler
-	http.HandleFunc("/api", graphqlHandler)
-	http.HandleFunc("/ws", pubsub.WebSocketHandler)
-	http.HandleFunc("/files", upload.HandleFileUpload)
-	http.HandleFunc("/attachment", model.HandleViewAttachment)
-	http.HandleFunc("/group/avatar", model.HandleViewGroupAvatar)
+	mux.HandleFunc("/api", graphqlHandler)
+	mux.HandleFunc("/ws", pubsub.WebSocketHandler)
+	mux.HandleFunc("/upload", upload.HandleFileUpload)
+	mux.HandleFunc("/attachment", model.HandleViewAttachment)
+	mux.HandleFunc("/group/avatar", model.HandleViewGroupAvatar)
 
 	const PORT = 3007
 
 	fmt.Println("Server is running on port:", PORT)
 
-	err := http.ListenAndServe(":"+strconv.Itoa(PORT), nil)
+	err := http.ListenAndServe(":"+strconv.Itoa(PORT), handler)
+
 	if err != nil {
 		panic(err)
 	}

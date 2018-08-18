@@ -551,6 +551,14 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					DefaultValue: 0,
 					Description:  "user_id owner of group",
 				},
+				"title": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"avatar": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
 				"participants": &graphql.ArgumentConfig{
 					Type: graphql.NewList(graphql.Int),
 				},
@@ -583,9 +591,14 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				messageBody := params.Args["body"].(string)
 				messageEmoji := params.Args["emoji"].(bool)
 
+				groupTitle := params.Args["title"].(string)
+				groupAvatar := params.Args["avatar"].(string)
+
 				secret := params.Context.Value("secret")
 
 				userId := int64(uid)
+
+
 
 				var auth *model.Auth
 
@@ -618,7 +631,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				if len(userIds) < 2 {
 					return nil, errors.New("must have more than 1 member in conversation")
 				}
-				group, err := model.CreateConversation(userId, userIds, messageBody, messageGif, messageEmoji, attachments)
+				group, err := model.CreateConversation(userId, userIds, messageBody, messageGif, messageEmoji, attachments, groupTitle, groupAvatar)
 
 				if err != nil {
 					return nil, err
