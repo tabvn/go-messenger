@@ -1,4 +1,4 @@
-package pubsub
+package ws
 
 import (
 	"net/http"
@@ -34,24 +34,26 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	Instance.AddClient(client)
 
 	for {
-		mt, message, err := c.ReadMessage()
+		_, message, err := c.ReadMessage()
+
 		if err != nil {
 			log.Println("read:", err)
-
 			// handle remove client and subscriptions
 			Instance.RemoveClient(client)
-			
 			client = nil
 
 			break
 		}
 
-		log.Printf("recv: %s, clients: %d", message, len(Instance.Clients))
+		Instance.OnMessage(client, message)
 
-		Instance.HandleReceivedMessage(client, mt, message)
+		for _, i := range Instance.Clients {
+
+			log.Println("c", i.UserId)
+		}
 
 		if err != nil {
-			log.Println("write:", err)
+			log.Println("error:", err)
 			break
 		}
 	}

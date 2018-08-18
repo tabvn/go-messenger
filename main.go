@@ -8,12 +8,12 @@ import (
 	"messenger/dev"
 	"messenger/schema"
 	"messenger/model"
-	"messenger/pubsub"
 	"messenger/db"
 	"fmt"
 	"strconv"
 	"messenger/upload"
 	"github.com/rs/cors"
+	"messenger/ws"
 )
 
 const (
@@ -121,7 +121,7 @@ func main() {
 	Setup()
 	// Router api graphQL handler
 	mux.HandleFunc("/api", graphqlHandler)
-	mux.HandleFunc("/ws", pubsub.WebSocketHandler)
+	mux.HandleFunc("/ws", ws.WebSocketHandler)
 	mux.HandleFunc("/upload", upload.HandleFileUpload)
 	mux.HandleFunc("/attachment", model.HandleViewAttachment)
 	mux.HandleFunc("/group/avatar", model.HandleViewGroupAvatar)
