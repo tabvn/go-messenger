@@ -47,11 +47,6 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 
 		Instance.OnMessage(client, message)
 
-		for _, i := range Instance.Clients {
-
-			log.Println("c", i.UserId)
-		}
-
 		if err != nil {
 			log.Println("error:", err)
 			break

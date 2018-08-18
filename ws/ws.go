@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/websocket"
 	"messenger/db"
 	"database/sql"
+	"messenger/model"
 )
 
 const (
@@ -14,6 +15,7 @@ const (
 type AuthMessage struct {
 	Token string `json:"token"`
 }
+
 type Client struct {
 	Id     string
 	Conn   *websocket.Conn
@@ -51,13 +53,32 @@ func (w *Ws) AuthClient(c *Client, token string) {
 	row.Scan(&userId)
 	if userId.Valid && userId.Int64 > 0 {
 		c.UserId = userId.Int64
+		model.UpdateUserStatus(userId.Int64, true)
+
 	} else {
 		c.UserId = 0
 	}
 
 }
 func (w *Ws) RemoveClient(c *Client) {
+
 	delete(w.Clients, c.Id)
+
+	// update user status
+	if c.UserId > 0 {
+		// need update user status
+		var online = false
+		for _, i := range w.Clients {
+			if i.UserId == c.UserId {
+				online = true
+				break
+			}
+		}
+		
+		model.UpdateUserStatus(c.UserId, online)
+
+	}
+
 }
 
 func (w *Ws) OnMessage(c *Client, message []byte) {

@@ -595,3 +595,8 @@ func UnBlockUser(userId, friendId int64) (bool, error) {
 
 	return true, nil
 }
+
+func UpdateUserStatus(userId int64, online bool) {
+	query := `UPDATE users SET online=? WHERE id = ?`
+	db.DB.Update(query, online, userId)
+}
