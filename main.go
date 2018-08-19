@@ -127,6 +127,9 @@ func main() {
 	mux.HandleFunc("/attachment", model.HandleViewAttachment)
 	mux.HandleFunc("/group/avatar", model.HandleViewGroupAvatar)
 
+	fs := http.FileServer(http.Dir("public"))
+	mux.Handle("/public/", http.StripPrefix("/public/", fs))
+
 	const PORT = 3007
 
 	fmt.Println("Server is running on port:", PORT)
