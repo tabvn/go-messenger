@@ -123,6 +123,7 @@ func main() {
 	mux.HandleFunc("/api", graphqlHandler)
 	mux.HandleFunc("/ws", ws.WebSocketHandler)
 	mux.HandleFunc("/upload", upload.HandleFileUpload)
+	mux.HandleFunc("/uploads", upload.HandleMultiUpload)
 	mux.HandleFunc("/attachment", model.HandleViewAttachment)
 	mux.HandleFunc("/group/avatar", model.HandleViewGroupAvatar)
 

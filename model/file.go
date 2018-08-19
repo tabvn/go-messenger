@@ -74,6 +74,7 @@ func SaveFile(userId int64, name string, original string, fileType string, size 
 			Original: original,
 			Type:     fileType,
 			Size:     size,
+			Created:  created,
 		}, nil
 	}
 	return nil, errors.New("unknown error")
