@@ -511,18 +511,24 @@ func Users(userId int64, search string, limit int, skip int) ([]*User, error) {
 
 		q := `SELECT u.*, f.id, b.id friendship FROM users as u 
 			LEFT JOIN friendship as f ON  f.friend_id = u.id AND f.user_id =? AND f.status = 1 
-			LEFT JOIN blocked as b ON b.author =? AND b.user = u.id ORDER BY created DESC LIMIT ? OFFSET ?`
+			LEFT JOIN blocked as b ON b.author =? AND b.user = u.id WHERE 
+			u.id NOT IN (SELECT user FROM blocked WHERE author =? AND user = u.id)
+			AND u.id NOT IN (SELECT author FROM blocked WHERE author = u.id AND user = ?) 
+			ORDER BY created DESC LIMIT ? OFFSET ?`
 
-		rows, err = db.DB.List(q, userId, userId, limit, skip)
+		rows, err = db.DB.List(q, userId, userId, userId, userId, limit, skip)
 	} else {
 
 		like := "%" + search + "%"
 		q := `SELECT u.*, f.id, b.id friendship FROM users as u 
 			LEFT JOIN friendship as f ON  f.friend_id = u.id AND f.user_id =? AND f.status = 1 
 			LEFT JOIN blocked as b ON b.author =? AND b.user = u.id 
-			WHERE u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?
+			WHERE 
+			u.id NOT IN (SELECT user FROM blocked WHERE author =? AND user = u.id)
+			AND u.id NOT IN (SELECT author FROM blocked WHERE author = u.id AND user = ?)
+			AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?)
 			ORDER BY created DESC LIMIT ? OFFSET ?`
-		rows, err = db.DB.List(q, userId, userId, like, like, like, limit, skip)
+		rows, err = db.DB.List(q, userId, userId, userId, userId, like, like, like, limit, skip)
 	}
 
 	if err != nil {
