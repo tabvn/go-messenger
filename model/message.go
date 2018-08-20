@@ -212,9 +212,10 @@ func Messages(groupId int64, userId int64, limit int, skip int) ([] *Message, er
 		LEFT JOIN attachments as a ON m.id = a.message_id
 		LEFT JOIN files as f ON a.file_id = f.id
 		INNER JOIN (SELECT mm.id FROM messages as mm WHERE mm.group_id =? ORDER BY mm.id DESC LIMIT ? OFFSET ?) as mj on mj.id = m.id
+		WHERE m.user_id NOT IN (SELECT user FROM blocked WHERE author =? AND user = m.user_id)
 	`
 
-	rows, err := db.DB.List(query, userId, groupId, limit, skip)
+	rows, err := db.DB.List(query, userId, groupId, limit, skip, userId)
 
 	messages, err := scanMessage(rows)
 

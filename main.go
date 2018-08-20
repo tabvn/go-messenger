@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	MysqlConnectUrl = "root:@/messenger"
+	MysqlConnectUrl = "root:@tcp(127.0.0.1:3306)/messenger?charset=utf8mb4&collation=utf8mb4_unicode_ci"
 	IsProduction    = false
 )
 
