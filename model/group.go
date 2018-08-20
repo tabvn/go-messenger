@@ -326,7 +326,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		INNER JOIN members AS m ON m.group_id = g.id
 		LEFT JOIN users as u ON u.id = m.user_id 
 		LEFT JOIN messages as message ON message.group_id = g.id 
-		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
+		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id AND user_id NOT IN (SELECT user FROM blocked WHERE author =? AND user = user_id)) 
 		LEFT JOIN unreads as r ON r.message_id = message.id AND r.user_id = message.user_id
 		LEFT JOIN attachments as a ON a.message_id = message.id 
 		LEFT JOIN files as f ON a.file_id = f.id
@@ -334,7 +334,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		AND mb.user_id =? INNER JOIN messages as msg ON msg.group_id = gr.id GROUP BY gr.id ORDER BY msg.created DESC LIMIT ? OFFSET ?) as grj ON grj.id = g.id
 	`
 
-		rows, err = db.DB.List(query, userId, userId, limit, skip)
+		rows, err = db.DB.List(query, userId, userId, userId, limit, skip)
 		if err != nil {
 			return nil, err
 		}
@@ -381,7 +381,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 			INNER JOIN members AS m ON m.group_id = g.id
 			LEFT JOIN users as u ON u.id = m.user_id
 			LEFT JOIN messages as message ON message.group_id = g.id
-			AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id )
+			AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id AND user_id NOT IN (SELECT user FROM blocked WHERE author =? AND user = user_id))
 			LEFT JOIN unreads as r ON r.message_id = message.id AND r.user_id = message.user_id
 			LEFT JOIN attachments as a ON a.message_id = message.id
 			LEFT JOIN files as f ON a.file_id = f.id
@@ -390,7 +390,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 
 		query = fmt.Sprintf(query, whereInString)
 
-		rr, e := db.DB.List(query, userId)
+		rr, e := db.DB.List(query, userId, userId)
 
 		if e != nil {
 
