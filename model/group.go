@@ -410,6 +410,29 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 
 }
 
+func CanDeleteMember(authorId, userId, groupId int64) (bool) {
+	if authorId == userId {
+		return true
+	}
+
+	q := `SELECT COUNT(m.user_id) as count FROM members as m WHERE m.group_id =? AND m.user_id = ? AND m.blocked = 0`
+
+	row, e := db.DB.FindOne(q, groupId, userId)
+	if e != nil {
+		return false
+	}
+
+	var count int
+	if row.Scan(&count) != nil {
+		return false
+	}
+
+	if count > 0 {
+		return true
+	}
+
+	return false
+}
 func CanJoinGroup(authorId, userId, groupId int64) (bool) {
 
 	// we are not allow self join
@@ -447,7 +470,6 @@ func JoinGroup(userId, groupId int64) (bool) {
 
 	insertedId, err := db.DB.Insert(q, userId, groupId, 0, helper.GetUnixTimestamp())
 
-	fmt.Print("join", insertedId, err)
 	if err != nil {
 		return false
 	}

@@ -598,8 +598,6 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 				userId := int64(uid)
 
-
-
 				var auth *model.Auth
 
 				if secret == nil {
@@ -815,11 +813,21 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					if auth == nil {
 						return nil, errors.New("access denied")
 					} else {
-
 						// if not super admin only accept userId from auth request
+						if uid == 0 {
+							uid = auth.UserId
+						}
 
-						uid = auth.UserId
+						// check if user has perm to remove
 
+						if auth.UserId != uid {
+							// let check if user is has perm to remove a user from group
+
+							canRemove := model.CanDeleteMember(auth.UserId, uid, gid)
+							if !canRemove {
+								return nil, errors.New("can not remove user")
+							}
+						}
 					}
 				}
 
