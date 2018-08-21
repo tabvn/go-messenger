@@ -2,7 +2,6 @@ package model
 
 import (
 	"database/sql"
-	"fmt"
 	"errors"
 	"messenger/db"
 	"messenger/helper"
@@ -36,7 +35,8 @@ func scanFiles(rows *sql.Rows) ([] *File, error) {
 
 		err := rows.Scan(&id, &userId, &name, &original, &fileType, &size, &created)
 		if err != nil {
-			fmt.Println("file scan error", err)
+
+
 		}
 
 		file := &File{

@@ -124,7 +124,7 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 
 		rows, err := db.DB.List(q, userId, userId, search, search, search, limit, skip)
 
-		fmt.Println("sea", search)
+
 		if err != nil {
 
 			return nil, err

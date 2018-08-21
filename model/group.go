@@ -107,7 +107,6 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 			&uUserId, &uid, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &unread, &messageUnread,
 		);
 			err != nil {
-			fmt.Println("Scan message error", err)
 		}
 
 		if messageId.Int64 > 0 {
@@ -295,7 +294,7 @@ func searchGroups(search string, userId int64, limit, skip int) ([]int64, error)
 	for r.Next() {
 		err := r.Scan(&scanId)
 		if err != nil {
-			fmt.Println("scan group id error", err)
+
 		}
 
 		if scanId.Int64 > 0 {
@@ -303,7 +302,6 @@ func searchGroups(search string, userId int64, limit, skip int) ([]int64, error)
 		}
 	}
 
-	fmt.Println("f", ids)
 
 	return ids, nil
 }
@@ -332,6 +330,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		LEFT JOIN files as f ON a.file_id = f.id
 		INNER JOIN (SELECT gr.id FROM groups as gr INNER JOIN members as mb ON gr.id = mb.group_id AND mb.blocked = 0
 		AND mb.user_id =? INNER JOIN messages as msg ON msg.group_id = gr.id GROUP BY gr.id ORDER BY msg.created DESC LIMIT ? OFFSET ?) as grj ON grj.id = g.id
+		ORDER BY message.created DESC
 	`
 
 		rows, err = db.DB.List(query, userId, userId, userId, limit, skip)
@@ -386,6 +385,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 			LEFT JOIN attachments as a ON a.message_id = message.id
 			LEFT JOIN files as f ON a.file_id = f.id
 			WHERE g.id in %s
+			ORDER BY message.created DESC
 			`
 
 		query = fmt.Sprintf(query, whereInString)
@@ -571,7 +571,6 @@ func FindOrCreateGroup(authorId int64, userIds [] int64, title, avatar string) (
 
 		if createMemberErr != nil {
 
-			fmt.Println("cm", createMemberErr, gid)
 
 			defer db.DB.Delete(`DELETE FROM groups WHERE id =? `, gid)
 

@@ -129,7 +129,7 @@ func scanMessage(rows *sql.Rows) ([] *Message, error) {
 
 		if err := rows.Scan(&id, &userId, &groupId, &body, &emoji, &gif, &created, &updated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize,
 			&unread); err != nil {
-			fmt.Println("Scan message error", err)
+
 		}
 
 		var attachment *Attachment
@@ -187,7 +187,6 @@ func (m *Message) Load() (*Message, error) {
 		WHERE m.id=?`
 	rows, err := db.DB.List(query, m.Id)
 
-	fmt.Println("rows,", rows, err)
 	messages, err := scanMessage(rows)
 
 	if err != nil {
@@ -243,7 +242,6 @@ func UnreadMessages(userId int64, limit int, skip int) ([] *Message, error) {
 
 	rows, err := db.DB.List(query, userId, limit, skip)
 
-	fmt.Println("rows", rows, err)
 	messages, err := scanMessage(rows)
 
 	if err != nil {
@@ -321,8 +319,6 @@ func MarkAsReadByGroup(groupId int64, userId int64) (error) {
 
 	_, err := db.DB.DeleteMany(q, groupId, userId)
 
-	fmt.Println(err)
-
 	return err
 }
 
@@ -332,7 +328,6 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 	messageId, err := db.DB.Insert(`INSERT INTO messages (group_id, user_id, body, emoji, gif, created, updated) VALUES (?,?,?,?,?,?,?)`,
 		groupId, userId, body, emoji, gif, unixTime, unixTime)
 
-	fmt.Println("got message id created", messageId, err)
 	if err != nil {
 		return nil, err
 	}

@@ -590,7 +590,7 @@ func UnBlockUser(userId, friendId int64) (bool, error) {
 		return false, errors.New("can not un blocked your self")
 	}
 
-	fmt.Println("unblock", userId, friendId)
+
 	q := `DELETE FROM blocked WHERE author =? AND user =?`
 
 	_, err := db.DB.Delete(q, userId, friendId)
