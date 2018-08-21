@@ -11,6 +11,7 @@ import (
 	"messenger/model"
 	"encoding/json"
 	"io"
+	"messenger/sanitize"
 )
 
 const maxUploadSize = 1024 * 1024
@@ -69,14 +70,9 @@ func HandleMultiUpload(w http.ResponseWriter, r *http.Request) {
 		fileType := http.DetectContentType(fileBytes)
 
 		fileName := randToken(12)
-		fileEndings, err := mime.ExtensionsByType(fileType)
-		if err != nil {
-			renderError(w, "CANT_READ_FILE_TYPE", http.StatusInternalServerError)
-			return
-		}
-		name := fileName + fileEndings[0]
+
+		name := fileName + "_" + sanitize.Name(file.Filename)
 		newPath := filepath.Join("./storage", name)
-		fmt.Printf("FileType: %s, File: %s\n", fileType, newPath)
 
 		// write file
 		newFile, err := os.Create(newPath)
