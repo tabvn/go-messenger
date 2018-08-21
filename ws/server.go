@@ -37,7 +37,7 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 		_, message, err := c.ReadMessage()
 
 		if err != nil {
-			log.Println("read:", err)
+
 			// handle remove client and subscriptions
 			Instance.RemoveClient(client)
 			client = nil

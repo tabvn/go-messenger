@@ -6,6 +6,7 @@ import (
 	"messenger/db"
 	"database/sql"
 	"messenger/model"
+	"fmt"
 )
 
 const (
@@ -24,7 +25,7 @@ type Client struct {
 
 type Message struct {
 	Action  string          `json:"action"`
-	Message json.RawMessage `json:"message"`
+	Payload json.RawMessage `json:"payload"`
 }
 
 type Ws struct {
@@ -51,6 +52,7 @@ func (w *Ws) AuthClient(c *Client, token string) {
 	}
 
 	row.Scan(&userId)
+
 	if userId.Valid && userId.Int64 > 0 {
 		c.UserId = userId.Int64
 		model.UpdateUserStatus(userId.Int64, true)
@@ -74,7 +76,7 @@ func (w *Ws) RemoveClient(c *Client) {
 				break
 			}
 		}
-		
+
 		model.UpdateUserStatus(c.UserId, online)
 
 	}
@@ -90,13 +92,14 @@ func (w *Ws) OnMessage(c *Client, message []byte) {
 		return
 	}
 
+	fmt.Println("receive client message", m)
 	switch m.Action {
 
 	case AUTH:
 
 		var auth AuthMessage
 
-		err := json.Unmarshal(m.Message, &auth)
+		err := json.Unmarshal(m.Payload, &auth)
 
 		if err == nil {
 			w.AuthClient(c, auth.Token)
