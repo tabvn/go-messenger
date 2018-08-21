@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"messenger/upload"
 	"github.com/rs/cors"
-	"messenger/ws"
 )
 
 const (
@@ -121,7 +120,7 @@ func main() {
 	Setup()
 	// Router api graphQL handler
 	mux.HandleFunc("/api", graphqlHandler)
-	mux.HandleFunc("/ws", ws.WebSocketHandler)
+	mux.HandleFunc("/ws", model.WebSocketHandler)
 	mux.HandleFunc("/upload", upload.HandleFileUpload)
 	mux.HandleFunc("/uploads", upload.HandleMultiUpload)
 	mux.HandleFunc("/attachment", model.HandleViewAttachment)

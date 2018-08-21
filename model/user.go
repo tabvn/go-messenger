@@ -590,7 +590,6 @@ func UnBlockUser(userId, friendId int64) (bool, error) {
 		return false, errors.New("can not un blocked your self")
 	}
 
-
 	q := `DELETE FROM blocked WHERE author =? AND user =?`
 
 	_, err := db.DB.Delete(q, userId, friendId)
@@ -602,7 +601,31 @@ func UnBlockUser(userId, friendId int64) (bool, error) {
 	return true, nil
 }
 
-func UpdateUserStatus(userId int64, online bool) {
-	query := `UPDATE users SET online=? WHERE id = ?`
-	db.DB.Update(query, online, userId)
+func UpdateUserStatus(userId int64, online bool, status string) (bool) {
+
+	var err error
+
+	if status != "" {
+		query := `UPDATE users SET online=?, custom_status=? WHERE id = ?`
+		_, err = db.DB.Update(query, online, status, userId)
+
+	} else {
+		query := `UPDATE users SET online=? WHERE id = ?`
+		_, err = db.DB.Update(query, online, userId)
+	}
+
+	if err == nil {
+
+		realStatus := UserStatus(online, status)
+		fmt.Println("should notify to other online contacts", realStatus)
+
+		message := []byte(`{"action": "user_status", payload: {"user_id": 10, status: "online"}}`)
+		Instance.Send(10, message)
+
+		return true
+
+	}
+
+	return false
+
 }

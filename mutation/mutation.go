@@ -263,6 +263,57 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			},
 		},
 
+		"updateUserStatus": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "update user status",
+			Args: graphql.FieldConfigArgument{
+				"user_id": &graphql.ArgumentConfig{
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+				"status": &graphql.ArgumentConfig{
+					Type:         graphql.NewNonNull(graphql.String),
+					DefaultValue: "online",
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				userId, ok := params.Args["user_id"].(int)
+				status, k := params.Args["status"].(string)
+
+				if !ok {
+					return nil, errors.New("invalid user_id")
+				}
+				if !k {
+
+					return nil, errors.New("invalid status")
+				}
+
+				var auth *model.Auth
+				uid := int64(userId)
+
+				if uid == 0 {
+					return nil, errors.New("invalid user_id")
+				}
+				secret := params.Context.Value("secret")
+
+				if secret == nil {
+
+					auth = model.GetAuth(params)
+					uid = auth.UserId
+
+					if auth == nil {
+						return nil, errors.New("access denied")
+					}
+
+				}
+
+				bool := model.UpdateUserStatus(uid, true, status)
+
+				return bool, nil
+
+			},
+		},
 		"deleteUser": &graphql.Field{
 			Type:        graphql.Boolean,
 			Description: "Delete user. Secret only",
