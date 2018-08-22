@@ -268,7 +268,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			Description: "update user status",
 			Args: graphql.FieldConfigArgument{
 				"user_id": &graphql.ArgumentConfig{
-					Type:         graphql.NewNonNull(graphql.Int),
+					Type:         graphql.Int,
 					DefaultValue: 0,
 				},
 				"status": &graphql.ArgumentConfig{
@@ -292,9 +292,6 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				var auth *model.Auth
 				uid := int64(userId)
 
-				if uid == 0 {
-					return nil, errors.New("invalid user_id")
-				}
 				secret := params.Context.Value("secret")
 
 				if secret == nil {
@@ -306,6 +303,10 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 						return nil, errors.New("access denied")
 					}
 
+				}
+
+				if uid == 0 {
+					return nil, errors.New("invalid user_id")
 				}
 
 				bool := model.UpdateUserStatus(uid, true, status)

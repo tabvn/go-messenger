@@ -5,7 +5,6 @@ import (
 	"github.com/gorilla/websocket"
 	"messenger/db"
 	"database/sql"
-	"fmt"
 	"net/http"
 	"github.com/satori/go.uuid"
 	"log"
@@ -97,7 +96,6 @@ func (w *Ws) OnMessage(c *Client, message []byte) {
 		return
 	}
 
-	fmt.Println("receive client message", m)
 	switch m.Action {
 
 	case AUTH:
@@ -122,15 +120,20 @@ func (w *Ws) Send(userId int64, message []byte) {
 
 	for _, client := range w.Clients {
 
-		fmt.Println("sending", userId, client.UserId)
 		if client.UserId == userId {
 			client.Conn.WriteMessage(1, message)
 		}
 	}
 }
 
+func (w *Ws) SendJson(userId int64, message interface{}) {
+	for _, client := range w.Clients {
 
-
+		if client.UserId == userId {
+			client.Conn.WriteJSON(message)
+		}
+	}
+}
 
 func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 

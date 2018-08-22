@@ -48,6 +48,8 @@ func Setup() {
 		panic(errors.New("can not connect to database"))
 	}
 
+	db.DB.Query("UPDATE users SET online =?", false)
+
 }
 
 func graphqlHandler(w http.ResponseWriter, r *http.Request) {
