@@ -608,8 +608,8 @@ func FindUserToNotify(userId int64) ([] int64) {
 
 	q := `SELECT a.id FROM 
 	(SELECT DISTINCT(u.id) FROM users as u INNER JOIN members as m ON u.id = m.user_id AND u.online = 1 AND u.id !=? WHERE m.group_id IN (SELECT groups.id FROM members INNER JOIN groups ON members.group_id = groups.id AND members.user_id =?) ) as a
-	LEFT JOIN (SELECT DISTINCT(u.id) from friendship as f INNER JOIN users as u ON u.id = f.friend_id AND f.user_id=? WHERE u.online = true) as b ON b.id = a.id`
-	rows, err := db.DB.List(q, userId, userId, userId)
+	LEFT JOIN (SELECT DISTINCT(u.id) from friendship as f INNER JOIN users as u ON u.id = f.friend_id AND f.user_id=? WHERE u.online = true) as b ON b.id = a.id WHERE a.id NOT IN (SELECT b.user FROM blocked AS b WHERE b.author =?)`
+	rows, err := db.DB.List(q, userId, userId, userId, userId)
 
 	if err != nil {
 		return nil
