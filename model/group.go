@@ -482,9 +482,20 @@ func JoinGroup(userId, groupId int64) (bool) {
 
 func LeftGroup(userId, groupId int64) (int64, error) {
 
+	ids := GetGroupMembers(userId, groupId)
+
 	q := `DELETE FROM members WHERE user_id = ? AND group_id =?`
 
 	result, err := db.DB.Delete(q, userId, groupId)
+
+
+	if err == nil {
+		// notify user left group
+		for _, id := range ids {
+			Instance.Send(id, []byte(`{"action": "left_group", "payload": {"group_id": `+strconv.Itoa(int(groupId))+`,"user_id": `+strconv.Itoa(int(id))+`}}`))
+		}
+	}
+
 	return result, err
 }
 
