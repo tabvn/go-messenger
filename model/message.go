@@ -322,7 +322,7 @@ func MarkAsReadByGroup(groupId int64, userId int64) (error) {
 	return err
 }
 
-func GetGroupMembers(userId, groupId int64) ([] int64) {
+func GetGroupMemberOnline(userId, groupId int64) ([] int64) {
 
 	var ids [] int64
 
@@ -354,7 +354,7 @@ func NotifyMessageToMembers(groupId int64, message Message) {
 		"payload": message,
 	}
 
-	ids := GetGroupMembers(message.UserId, groupId)
+	ids := GetGroupMemberOnline(message.UserId, groupId)
 
 	for _, id := range ids {
 		Instance.SendJson(id, payload)

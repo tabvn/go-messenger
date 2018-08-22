@@ -470,6 +470,34 @@ func JoinGroup(userId, groupId int64) (bool) {
 
 	insertedId, err := db.DB.Insert(q, userId, groupId, 0, helper.GetUnixTimestamp())
 
+	ids := GetGroupMemberOnline(userId, groupId)
+
+	user, err := GetUser(userId)
+
+	if user != nil && err == nil {
+
+		payload := map[string]interface{}{
+			"action": "join_group",
+			"payload": map[string]interface{}{
+				"group_id": groupId,
+				"user": map[string]interface{}{
+					"id":         user.Id,
+					"first_name": user.FirstName,
+					"last_name":  user.LastName,
+					"avatar":     user.Avatar,
+					"status":     UserStatus(user.Online, user.CustomStatus),
+				},
+			},
+		}
+
+		defer func() {
+			for _, id := range ids {
+				Instance.SendJson(id, payload)
+			}
+		}()
+
+	}
+
 	if err != nil {
 		return false
 	}
@@ -482,19 +510,20 @@ func JoinGroup(userId, groupId int64) (bool) {
 
 func LeftGroup(userId, groupId int64) (int64, error) {
 
-	ids := GetGroupMembers(userId, groupId)
+	ids := GetGroupMemberOnline(userId, groupId)
 
 	q := `DELETE FROM members WHERE user_id = ? AND group_id =?`
 
 	result, err := db.DB.Delete(q, userId, groupId)
 
-
-	if err == nil {
-		// notify user left group
-		for _, id := range ids {
-			Instance.Send(id, []byte(`{"action": "left_group", "payload": {"group_id": `+strconv.Itoa(int(groupId))+`,"user_id": `+strconv.Itoa(int(id))+`}}`))
+	defer func() {
+		if err == nil {
+			// notify user left group
+			for _, id := range ids {
+				Instance.Send(id, []byte(`{"action": "left_group", "payload": {"group_id": `+strconv.Itoa(int(groupId))+`,"user_id": `+strconv.Itoa(int(userId))+`}}`))
+			}
 		}
-	}
+	}()
 
 	return result, err
 }

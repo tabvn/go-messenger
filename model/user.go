@@ -363,6 +363,23 @@ func (u *User) Load() (*User, error) {
 
 	return user, err
 }
+func GetUser(id int64)(*User, error){
+
+	row, err := db.DB.FindOne(`SELECT u.*, count(id), count(created)  FROM users AS u  WHERE id = ?`, id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := scanUser(row)
+
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	return user, err
+
+}
 
 func (u *User) Delete() (bool, error) {
 
