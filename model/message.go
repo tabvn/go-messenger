@@ -363,6 +363,22 @@ func NotifyMessageToMembers(groupId int64, message Message) {
 }
 func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif string, attachments [] int64) (*Message, error) {
 
+	// we need check if members in group is more than 1
+
+	row, err := db.DB.FindOne("SELECT COUNT(*) FROM members WHERE group_id =?", groupId)
+	if err != nil {
+		return nil, err
+	}
+	var count int64
+
+	if row.Scan(&count) != nil {
+		return nil, errors.New("can not send message")
+	}
+
+	if count < 2 {
+		return nil, errors.New("no member in conversation")
+	}
+
 	unixTime := helper.GetUnixTimestamp()
 	messageId, err := db.DB.Insert(`INSERT INTO messages (group_id, user_id, body, emoji, gif, created, updated) VALUES (?,?,?,?,?,?,?)`,
 		groupId, userId, body, emoji, gif, unixTime, unixTime)
