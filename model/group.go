@@ -302,7 +302,6 @@ func searchGroups(search string, userId int64, limit, skip int) ([]int64, error)
 		}
 	}
 
-
 	return ids, nil
 }
 
@@ -330,10 +329,11 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		LEFT JOIN files as f ON a.file_id = f.id
 		INNER JOIN (SELECT gr.id FROM groups as gr INNER JOIN members as mb ON gr.id = mb.group_id AND mb.blocked = 0
 		AND mb.user_id =? INNER JOIN messages as msg ON msg.group_id = gr.id GROUP BY gr.id ORDER BY msg.created DESC LIMIT ? OFFSET ?) as grj ON grj.id = g.id
+		WHERE g.id NOT IN (SELECT group_id FROM archived WHERE group_id = g.id AND user_id =?)
 		ORDER BY message.created DESC
 	`
 
-		rows, err = db.DB.List(query, userId, userId, userId, limit, skip)
+		rows, err = db.DB.List(query, userId, userId, userId, limit, skip, userId)
 		if err != nil {
 			return nil, err
 		}
@@ -571,7 +571,6 @@ func FindOrCreateGroup(authorId int64, userIds [] int64, title, avatar string) (
 
 		if createMemberErr != nil {
 
-
 			defer db.DB.Delete(`DELETE FROM groups WHERE id =? `, gid)
 
 			return 0, createMemberErr
@@ -588,4 +587,15 @@ func FindOrCreateGroup(authorId int64, userIds [] int64, title, avatar string) (
 
 	return 0, nil
 
+}
+
+func ArchiveGroup(userId, groupId int64) (bool) {
+
+	_, err := db.DB.Insert(`INSERT INTO archived (user_id, group_id) VALUES (?,?)`, userId, groupId)
+
+	if err != nil {
+		return false
+	}
+
+	return true
 }
