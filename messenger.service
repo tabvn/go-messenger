@@ -1,0 +1,13 @@
+[Unit]
+Description= instance to serve messenger api
+After=network.target
+
+[Service]
+User=root
+Group=www-data
+
+Environment=GOPATH=/var/www/messenger/
+ExecStart=/var/www/messenger/messenger
+
+[Install]
+WantedBy=multi-user.target

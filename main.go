@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	MysqlConnectUrl = "root:@tcp(127.0.0.1:3306)/messenger?charset=utf8mb4&collation=utf8mb4_unicode_ci"
+	MysqlConnectUrl = "messenger:messenger@tcp(127.0.0.1:3306)/messenger?charset=utf8mb4&collation=utf8mb4_unicode_ci"
 	IsProduction    = false
+	publicDir = "/var/www/messenger/public"
 )
 
 type params struct {
@@ -133,7 +134,7 @@ func main() {
 	mux.HandleFunc("/attachment", model.HandleViewAttachment)
 	mux.HandleFunc("/group/avatar", model.HandleViewGroupAvatar)
 
-	fs := http.FileServer(http.Dir("public"))
+	fs := http.FileServer(http.Dir(publicDir))
 	mux.Handle("/public/", http.StripPrefix("/public/", fs))
 
 	const PORT = 3007

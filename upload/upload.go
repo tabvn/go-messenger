@@ -15,6 +15,7 @@ import (
 )
 
 const maxUploadSize = 1024 * 1024
+const uploadDir = "/var/www/messenger/storage"
 
 func renderError(w http.ResponseWriter, message string, code int) {
 	http.Error(w, message, code)
@@ -132,7 +133,7 @@ func upload(userId int64, w http.ResponseWriter, r *http.Request) () {
 		return
 	}
 	name := fileName + fileEndings[0]
-	newPath := filepath.Join("./storage", name)
+	newPath := filepath.Join(uploadDir, name)
 	fmt.Printf("FileType: %s, File: %s\n", fileType, newPath)
 
 	// write file
