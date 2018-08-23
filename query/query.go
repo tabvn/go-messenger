@@ -4,7 +4,6 @@ import (
 	"github.com/graphql-go/graphql"
 	"messenger/model"
 	"errors"
-	"fmt"
 )
 
 var Query = graphql.NewObject(
@@ -395,7 +394,6 @@ var Query = graphql.NewObject(
 					if ok {
 						userId = int64(uid)
 					}
-
 
 					result, err := model.UnreadMessages(userId, limit, skip)
 					if err != nil {

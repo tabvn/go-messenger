@@ -103,8 +103,13 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		//w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("{\"messenger\": \"v.1.0\"}"))
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("{\"version\": \"v.1.0\"}"))
+	})
+
+	mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte("User-agent: *\nDisallow: /"))
 	})
 
 	c := cors.New(cors.Options{
