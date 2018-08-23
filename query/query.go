@@ -396,7 +396,7 @@ var Query = graphql.NewObject(
 						userId = int64(uid)
 					}
 
-					fmt.Println("userId", userId)
+
 					result, err := model.UnreadMessages(userId, limit, skip)
 					if err != nil {
 						return nil, err
