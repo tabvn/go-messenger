@@ -52,7 +52,7 @@ var Query = graphql.NewObject(
 						}
 					}
 
-					if uid == 0 && id == 0{
+					if uid == 0 && userId == 0 {
 						return nil, errors.New("invalid id or uid")
 					}
 
@@ -60,8 +60,8 @@ var Query = graphql.NewObject(
 					var err error
 
 					user := &model.User{
-						Id: userId,
-						Uid:int64(uid),
+						Id:  userId,
+						Uid: int64(uid),
 					}
 
 					result, err = user.Load()
