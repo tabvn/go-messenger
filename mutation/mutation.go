@@ -320,14 +320,25 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			Description: "Delete user. Secret only",
 			Args: graphql.FieldConfigArgument{
 				"id": &graphql.ArgumentConfig{
-					Type: graphql.NewNonNull(graphql.Int),
+					Type:         graphql.Int,
+					DefaultValue: 0,
+				},
+				"uid": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 0,
 				},
 			},
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
 				id, ok := params.Args["id"].(int)
+				uid, k := params.Args["uid"].(int)
+
 				if !ok {
 					return nil, errors.New("invalid id")
+				}
+
+				if !k {
+					return nil, errors.New("invalid uid");
 				}
 
 				secret := params.Context.Value("secret")
@@ -337,11 +348,22 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					return nil, errors.New("access denied")
 				}
 
-				user := model.User{
-					Id: int64(id),
+				if id == 0 && uid == 0 {
+					return nil, errors.New("invalid user_id or uid")
 				}
+				result := false
+				var err error
 
-				result, err := user.Delete()
+				if id > 0 {
+					user := model.User{
+						Id: int64(id),
+					}
+
+					result, err = user.Delete()
+				} else {
+
+					result, err = model.DeleteUserBy(int64(uid))
+				}
 
 				if err != nil {
 					return nil, errors.New("an error deleting user or not found")
@@ -386,16 +408,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			},
 		},
 		"logout": &graphql.Field{
-			Type: graphql.NewObject(
-				graphql.ObjectConfig{
-					Name: "Logout",
-					Fields: graphql.Fields{
-						"success": &graphql.Field{
-							Type: graphql.Boolean,
-						},
-					},
-				},
-			),
+			Type:        graphql.Boolean,
 			Description: "Login",
 			Args: graphql.FieldConfigArgument{
 				"token": &graphql.ArgumentConfig{
@@ -411,11 +424,8 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				if err != nil {
 					return nil, errors.New("logout error")
 				}
-				result := map[string]interface{}{
-					"success": success,
-				}
 
-				return result, err
+				return success, err
 
 			},
 		},

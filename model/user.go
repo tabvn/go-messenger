@@ -202,6 +202,7 @@ func (u *User) CreateOrUpdate() (error) {
 	findQuery := `SELECT id, COUNT(*) as c FROM users WHERE uid = ?`
 
 	row, err := db.DB.FindOne(findQuery, u.Uid)
+
 	if err != nil {
 		return err
 	}
@@ -212,7 +213,7 @@ func (u *User) CreateOrUpdate() (error) {
 
 	scanErr := row.Scan(&id, &count)
 
-	if scanErr != nil {
+	if scanErr != nil && scanErr != sql.ErrNoRows {
 		return scanErr
 	}
 
@@ -349,7 +350,16 @@ func scanUser(s db.RowScanner) (*User, error) {
 func (u *User) Load() (*User, error) {
 
 	//count(id), count(created) is fake scan for blocked and friend
-	row, err := db.DB.FindOne(`SELECT u.*, count(id), count(created)  FROM users AS u  WHERE id = ?`, u.Id)
+
+	var row *sql.Row
+	var err error
+
+	if u.Uid > 0 {
+		row, err = db.DB.FindOne(`SELECT u.*, count(id), count(created)  FROM users AS u  WHERE uid = ?`, u.Uid)
+
+	} else {
+		row, err = db.DB.FindOne(`SELECT u.*, count(id), count(created)  FROM users AS u  WHERE id = ?`, u.Id)
+	}
 
 	if err != nil {
 		return nil, err
@@ -363,7 +373,7 @@ func (u *User) Load() (*User, error) {
 
 	return user, err
 }
-func GetUser(id int64)(*User, error){
+func GetUser(id int64) (*User, error) {
 
 	row, err := db.DB.FindOne(`SELECT u.*, count(id), count(created)  FROM users AS u  WHERE id = ?`, id)
 
@@ -384,6 +394,17 @@ func GetUser(id int64)(*User, error){
 func (u *User) Delete() (bool, error) {
 
 	_, err := db.DB.Delete("DELETE FROM users where id=?", u.Id)
+
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func DeleteUserBy(uid int64) (bool, error) {
+
+	_, err := db.DB.Delete("DELETE FROM users where uid=?", uid)
 
 	if err != nil {
 		return false, err

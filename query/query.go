@@ -7,9 +7,6 @@ import (
 	"fmt"
 )
 
-
-
-
 var Query = graphql.NewObject(
 	graphql.ObjectConfig{
 		Name: "Query",
@@ -22,10 +19,18 @@ var Query = graphql.NewObject(
 						Type:         graphql.Int,
 						DefaultValue: 0,
 					},
+					"uid": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 
 					id, ok := p.Args["id"].(int)
+					uid, k := p.Args["uid"].(int)
+					if !k {
+						return nil, errors.New("invalid uid")
+					}
 
 					if !ok {
 						return nil, errors.New("invalid id")
@@ -47,11 +52,19 @@ var Query = graphql.NewObject(
 						}
 					}
 
-					user := &model.User{
-						Id: userId,
+					if uid == 0 && id == 0{
+						return nil, errors.New("invalid id or uid")
 					}
 
-					result, err := user.Load()
+					var result *model.User
+					var err error
+
+					user := &model.User{
+						Id: userId,
+						Uid:int64(uid),
+					}
+
+					result, err = user.Load()
 
 					if err != nil {
 						return nil, err
