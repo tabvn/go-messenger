@@ -13,12 +13,12 @@ import (
 	"strconv"
 	"messenger/upload"
 	"github.com/rs/cors"
+	"messenger/config"
 )
 
 const (
 	MysqlConnectUrl = "messenger:messenger@tcp(127.0.0.1:3306)/messenger?charset=utf8mb4&collation=utf8mb4_unicode_ci"
 	IsProduction    = false
-	publicDir = "/var/www/messenger/public"
 )
 
 type params struct {
@@ -134,7 +134,7 @@ func main() {
 	mux.HandleFunc("/attachment", model.HandleViewAttachment)
 	mux.HandleFunc("/group/avatar", model.HandleViewGroupAvatar)
 
-	fs := http.FileServer(http.Dir(publicDir))
+	fs := http.FileServer(http.Dir(config.PublicDir))
 	mux.Handle("/public/", http.StripPrefix("/public/", fs))
 
 	const PORT = 3007

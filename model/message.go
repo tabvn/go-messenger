@@ -19,7 +19,7 @@ type Message struct {
 	Emoji       bool   `json:"emoji"`
 	Created     int64  `json:"created"`
 	Updated     int64  `json:"updated"`
-	Attachments [] *Attachment
+	Attachments [] *Attachment `json:"attachments"`
 	Unread      bool   `json:"unread"`
 	Gif         string `json:"gif"`
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"messenger/db"
 	"database/sql"
+	"messenger/config"
 )
 
 type Attachment struct {
@@ -74,7 +75,7 @@ func HandleViewAttachment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if count.Int64 > 0 {
-		http.ServeFile(w, r, "storage/"+name)
+		http.ServeFile(w, r, config.UploadDir+"/"+name)
 		return
 	}
 

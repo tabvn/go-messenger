@@ -12,10 +12,10 @@ import (
 	"encoding/json"
 	"io"
 	"messenger/sanitize"
+	"messenger/config"
 )
 
 const maxUploadSize = 1024 * 1024
-const uploadDir = "/var/www/messenger/storage"
 
 func renderError(w http.ResponseWriter, message string, code int) {
 	http.Error(w, message, code)
@@ -73,7 +73,7 @@ func HandleMultiUpload(w http.ResponseWriter, r *http.Request) {
 		fileName := randToken(12)
 
 		name := fileName + "_" + sanitize.Name(file.Filename)
-		newPath := filepath.Join("./storage", name)
+		newPath := filepath.Join(config.UploadDir, name)
 
 		// write file
 		newFile, err := os.Create(newPath)
@@ -133,7 +133,7 @@ func upload(userId int64, w http.ResponseWriter, r *http.Request) () {
 		return
 	}
 	name := fileName + fileEndings[0]
-	newPath := filepath.Join(uploadDir, name)
+	newPath := filepath.Join(config.UploadDir, name)
 	fmt.Printf("FileType: %s, File: %s\n", fileType, newPath)
 
 	// write file
