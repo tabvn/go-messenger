@@ -615,18 +615,27 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			Type:        graphql.Boolean,
 			Description: "Delete message",
 			Args: graphql.FieldConfigArgument{
+				"user_id": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 0,
+				},
 				"id": &graphql.ArgumentConfig{
 					Type: graphql.NewNonNull(graphql.Int),
 				},
 			},
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
+				uid, k := params.Args["user_id"].(int)
+				if !k {
+					return nil, errors.New("invalid user_id")
+				}
 				id, ok := params.Args["id"].(int)
 				if !ok {
 					return nil, errors.New("invalid id")
 				}
 
-				mId := int64(id)
+				messageId := int64(id)
+				userId := int64(uid)
 
 				var auth *model.Auth
 
@@ -636,26 +645,14 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					auth = model.GetAuth(params)
 					if auth == nil {
 						return nil, errors.New("access denied")
-					} else {
-						// let check if user has perm to delete a message
-
-						canDelete := model.UserCanDeleteMessage(auth.UserId, mId)
-						if !canDelete {
-							return nil, errors.New("access denied")
-						}
 					}
+
+					userId = auth.UserId
 				}
 
-				m := model.Message{
-					Id: mId,
-				}
+				bool := model.DeleteMessage(userId, messageId)
 
-				result, err := m.Delete()
-
-				if err != nil {
-					return nil, errors.New("error")
-				}
-				return result, err
+				return bool, nil
 
 			},
 		},

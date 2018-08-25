@@ -12,16 +12,16 @@ import (
 )
 
 type Message struct {
-	Id          int64  `json:"id"`
-	UserId      int64  `json:"user_id"`
-	GroupId     int64  `json:"group_id"`
-	Body        string `json:"body"`
-	Emoji       bool   `json:"emoji"`
-	Created     int64  `json:"created"`
-	Updated     int64  `json:"updated"`
+	Id          int64          `json:"id"`
+	UserId      int64          `json:"user_id"`
+	GroupId     int64          `json:"group_id"`
+	Body        string         `json:"body"`
+	Emoji       bool           `json:"emoji"`
+	Created     int64          `json:"created"`
+	Updated     int64          `json:"updated"`
 	Attachments [] *Attachment `json:"attachments"`
-	Unread      bool   `json:"unread"`
-	Gif         string `json:"gif"`
+	Unread      bool           `json:"unread"`
+	Gif         string         `json:"gif"`
 }
 
 var MessageType = graphql.NewObject(
@@ -299,6 +299,60 @@ func UserCanDeleteMessage(userId, id int64) (bool) {
 	}
 
 	if count.Int64 > 0 {
+		return true
+	}
+
+	return false
+}
+
+func DeleteMessage(userId, messageId int64) (bool) {
+
+	// find Message
+
+	findQuery := "SELECT m.group_id FROM messages AS m WHERE m.id =?"
+
+	var scanGroupId sql.NullInt64
+
+	findRow, findErr := db.DB.FindOne(findQuery, messageId)
+
+	if findErr != nil {
+		return false
+	}
+
+	if findRow.Scan(&scanGroupId) != nil {
+		return false
+	}
+
+	groupId := scanGroupId.Int64
+
+	// delete the message if is owner
+	deleteQuery := `DELETE FROM messages WHERE id=? AND user_id =?`
+
+	numRowDeleted, err := db.DB.Delete(deleteQuery, messageId, userId)
+
+
+	if err != nil {
+		return false
+	}
+
+	if numRowDeleted > 0 {
+		// this is delete by user so we do need notify message is delete
+
+		defer func() {
+
+			payload := map[string]interface{}{
+				"action":  "message_deleted",
+				"payload": messageId,
+			}
+
+			ids := GetGroupMemberOnline(userId, groupId)
+
+			for _, id := range ids {
+				Instance.SendJson(id, payload)
+			}
+
+		}()
+
 		return true
 	}
 

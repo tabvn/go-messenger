@@ -1,6 +1,8 @@
 [Unit]
 Description= instance to serve messenger api
+Requires=mysql.service
 After=network.target
+After=mysql.service
 
 [Service]
 User=root
