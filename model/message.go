@@ -9,6 +9,7 @@ import (
 	"messenger/helper"
 	"errors"
 	"strconv"
+	"messenger/sanitize"
 )
 
 type Message struct {
@@ -212,9 +213,10 @@ func Messages(groupId int64, userId int64, limit int, skip int) ([] *Message, er
 		LEFT JOIN files as f ON a.file_id = f.id
 		INNER JOIN (SELECT mm.id FROM messages as mm WHERE mm.group_id =? ORDER BY mm.id DESC LIMIT ? OFFSET ?) as mj on mj.id = m.id
 		WHERE m.user_id NOT IN (SELECT user FROM blocked WHERE author =? AND user = m.user_id)
+		AND m.id NOT IN (SELECT message_id FROM deleted WHERE user_id =?  AND message_id = m.id)
 	`
 
-	rows, err := db.DB.List(query, userId, groupId, limit, skip, userId)
+	rows, err := db.DB.List(query, userId, groupId, limit, skip, userId, userId)
 
 	messages, err := scanMessage(rows)
 
@@ -305,9 +307,48 @@ func UserCanDeleteMessage(userId, id int64) (bool) {
 	return false
 }
 
-func DeleteMessage(userId, messageId int64) (bool) {
+func UpdateMessage(userId, messageId int64, body string, emoji bool) (bool) {
 
-	// find Message
+	updated := helper.GetUnixTimestamp()
+	query := `UPDATE messages SET body=?, emoji=?, updated=? WHERE id = ? AND user_id =?`
+
+	body = sanitize.HTML(body)
+
+	rowEffect, err := db.DB.Update(query, body, emoji, updated, messageId, userId)
+
+	if rowEffect > 0 && err == nil {
+
+		defer func() {
+
+			groupId, e := GetMessageGroupId(messageId)
+			if groupId > 0 && e == nil {
+				ids := GetGroupMemberOnline(userId, groupId)
+
+				payload := map[string]interface{}{
+					"action": "message_updated",
+					"payload": map[string]interface{}{
+						"id":       messageId,
+						"user_id":  userId,
+						"body":     body,
+						"emoji":    emoji,
+						"updated":  updated,
+						"group_id": groupId,
+					},
+				}
+				for _, id := range ids {
+					Instance.SendJson(id, payload)
+				}
+			}
+
+		}()
+
+		return true
+	}
+
+	return false
+}
+
+func GetMessageGroupId(messageId int64) (int64, error) {
 
 	findQuery := "SELECT m.group_id FROM messages AS m WHERE m.id =?"
 
@@ -316,20 +357,33 @@ func DeleteMessage(userId, messageId int64) (bool) {
 	findRow, findErr := db.DB.FindOne(findQuery, messageId)
 
 	if findErr != nil {
-		return false
+		return 0, findErr
 	}
 
-	if findRow.Scan(&scanGroupId) != nil {
-		return false
+	e := findRow.Scan(&scanGroupId)
+	if e != nil {
+		return 0, e
 	}
 
 	groupId := scanGroupId.Int64
+
+	return groupId, nil
+}
+
+func DeleteMessage(userId, messageId int64) (bool) {
+
+	// find Message
+
+	groupId, e := GetMessageGroupId(messageId)
+
+	if groupId == 0 || e != nil {
+		return false
+	}
 
 	// delete the message if is owner
 	deleteQuery := `DELETE FROM messages WHERE id=? AND user_id =?`
 
 	numRowDeleted, err := db.DB.Delete(deleteQuery, messageId, userId)
-
 
 	if err != nil {
 		return false
@@ -354,6 +408,25 @@ func DeleteMessage(userId, messageId int64) (bool) {
 		}()
 
 		return true
+	} else {
+
+		isMember := IsMemberOfGroup(userId, groupId)
+
+		if isMember {
+			// add to deleted table
+
+			addQuery := "INSERT INTO deleted (user_id, message_id) VALUES (?, ?)"
+
+			r, e := db.DB.Insert(addQuery, userId, messageId)
+
+			if e != nil {
+				return false
+			}
+			if r > 0 {
+				return true
+			}
+		}
+
 	}
 
 	return false
@@ -419,6 +492,7 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 
 	// we need check if members in group is more than 1
 
+	body = sanitize.HTML(body)
 	row, err := db.DB.FindOne("SELECT COUNT(*) FROM members WHERE group_id =?", groupId)
 	if err != nil {
 		return nil, err
@@ -452,6 +526,7 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 			GroupId: groupId,
 			Gif:     gif,
 			Created: unixTime,
+			Updated: unixTime,
 			Unread:  true,
 		}
 

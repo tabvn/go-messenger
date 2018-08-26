@@ -141,10 +141,6 @@ func main() {
 
 	fmt.Println("Server is running on port:", PORT)
 
-	err := http.ListenAndServe(":"+strconv.Itoa(PORT), handler)
-
-	if err != nil {
-		panic(err)
-	}
+	panic(http.ListenAndServe(":"+strconv.Itoa(PORT), handler))
 
 }

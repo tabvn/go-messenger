@@ -323,7 +323,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		INNER JOIN members AS m ON m.group_id = g.id
 		LEFT JOIN users as u ON u.id = m.user_id 
 		LEFT JOIN messages as message ON message.group_id = g.id 
-		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id AND user_id NOT IN (SELECT user FROM blocked WHERE author =? AND user = user_id)) 
+		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id AND id NOT IN (SELECT message_id FROM deleted WHERE user_id =?) AND user_id NOT IN (SELECT user FROM blocked WHERE author =? AND user = user_id)) 
 		LEFT JOIN unreads as r ON r.message_id = message.id AND r.user_id = message.user_id
 		LEFT JOIN attachments as a ON a.message_id = message.id 
 		LEFT JOIN files as f ON a.file_id = f.id
@@ -333,7 +333,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		ORDER BY message.created DESC
 	`
 
-		rows, err = db.DB.List(query, userId, userId, userId, limit, skip, userId)
+		rows, err = db.DB.List(query, userId, userId, userId, userId, limit, skip, userId)
 		if err != nil {
 			return nil, err
 		}
@@ -408,6 +408,21 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 
 	return nil, nil
 
+}
+
+func IsMemberOfGroup(userId, groupId int64) (bool) {
+
+	q := "SELECT COUNT(*) FROM members WHERE group_id=? AND user_id =?"
+
+	r, e := db.DB.Count(q, groupId, userId)
+	if e != nil {
+		return false
+	}
+	if r > 0 {
+		return true
+	}
+
+	return false
 }
 
 func CanDeleteMember(authorId, userId, groupId int64) (bool) {

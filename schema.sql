@@ -7,7 +7,7 @@
 #
 # Host: 127.0.0.1 (MySQL 5.6.40)
 # Database: messenger
-# Generation Time: 2018-08-23 10:24:31 +0000
+# Generation Time: 2018-08-26 03:42:04 +0000
 # ************************************************************
 
 
@@ -70,6 +70,24 @@ CREATE TABLE `blocked` (
   KEY `user` (`user`),
   CONSTRAINT `blocked_ibfk_1` FOREIGN KEY (`author`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `blocked_ibfk_2` FOREIGN KEY (`user`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+
+# Dump of table deleted
+# ------------------------------------------------------------
+
+DROP TABLE IF EXISTS `deleted`;
+
+CREATE TABLE `deleted` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) unsigned NOT NULL,
+  `message_id` int(11) unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique` (`user_id`,`message_id`),
+  KEY `message_id` (`message_id`),
+  CONSTRAINT `deleted_ibfk_2` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `deleted_ibfk_3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 

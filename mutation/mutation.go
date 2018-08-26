@@ -611,6 +611,62 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			},
 		},
 
+		"updateMessage": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "update message",
+			Args: graphql.FieldConfigArgument{
+				"user_id": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 0,
+				},
+				"id": &graphql.ArgumentConfig{
+					Type: graphql.NewNonNull(graphql.Int),
+				},
+				"body": &graphql.ArgumentConfig{
+					Type:         graphql.NewNonNull(graphql.String),
+					DefaultValue: "",
+				},
+				"emoji": &graphql.ArgumentConfig{
+					Type:         graphql.Boolean,
+					DefaultValue: false,
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				body := params.Args["body"].(string)
+				emoji := params.Args["emoji"].(bool)
+				uid, k := params.Args["user_id"].(int)
+				if !k {
+					return nil, errors.New("invalid user_id")
+				}
+				id, ok := params.Args["id"].(int)
+				if !ok {
+					return nil, errors.New("invalid id")
+				}
+
+				messageId := int64(id)
+				userId := int64(uid)
+
+				var auth *model.Auth
+
+				// allow super or authenticated user
+				secret := params.Context.Value("secret")
+				if secret == nil {
+					auth = model.GetAuth(params)
+					if auth == nil {
+						return nil, errors.New("access denied")
+					}
+
+					userId = auth.UserId
+				}
+
+				bool := model.UpdateMessage(userId, messageId, body, emoji)
+
+				return bool, nil
+
+			},
+		},
+
 		"deleteMessage": &graphql.Field{
 			Type:        graphql.Boolean,
 			Description: "Delete message",
