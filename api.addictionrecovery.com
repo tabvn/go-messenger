@@ -1,0 +1,33 @@
+server {
+       listen         80;
+       server_name    api.domain.com www.api.domain.com;
+       return         301 https://$server_name$request_uri;
+}
+
+server {
+        server_name api.domain.com www.api.domain.com;
+        listen 443 ssl;
+        ssl on;
+        ssl_certificate     /etc/letsencrypt/live/api.domain.com/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/api.domain.com/privkey.pem;
+        root /var/www/html;
+        location / {
+                proxy_pass http://127.0.0.1:3007;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
+        }
+
+	location /ws {
+
+		proxy_buffering off;
+    		proxy_set_header Host $host;
+    		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Real-IP $remote_addr;
+
+                proxy_pass http://127.0.0.1:3007/ws;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
+        }
+}
