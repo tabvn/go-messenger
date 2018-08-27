@@ -691,6 +691,19 @@ func UpdateUserStatus(userId int64, online bool, status string) (bool) {
 
 	if err == nil {
 
+		statusQuery := "SELECT custom_status from users WHERE id =?"
+
+		row, e := db.DB.FindOne(statusQuery, userId)
+
+		if e == nil {
+
+			var statusScan sql.NullString
+			if row.Scan(&statusScan) == nil {
+				status = statusScan.String
+			}
+
+		}
+
 		realStatus := UserStatus(online, status)
 
 		message := []byte(`{"action": "user_status", "payload": {"user_id": ` + strconv.Itoa(int(userId)) + `, "status": "` + realStatus + `"}}`)
