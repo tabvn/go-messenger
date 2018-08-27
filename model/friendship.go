@@ -57,6 +57,33 @@ func AddFriend(userId, friendId int64) (bool, error) {
 		return false, err
 	}
 	if numRows == 2 {
+
+		defer func() {
+
+			user, e := GetUser(friendId)
+			if e == nil && user != nil {
+				payload := map[string]interface{}{
+					"action": "add_friend",
+					"payload": map[string]interface{}{
+						"user_id": userId,
+						"friend": map[string]interface{}{
+							"id":         user.Id,
+							"first_name": user.FirstName,
+							"last_name":  user.LastName,
+							"avatar":     user.Avatar,
+							"friend":     true,
+							"blocked":    false,
+							"status":     UserStatus(user.Online, user.CustomStatus),
+						},
+					},
+				}
+
+				Instance.SendJson(friendId, payload)
+				Instance.SendJson(userId, payload)
+
+			}
+		}()
+
 		return true, nil
 	}
 
@@ -73,6 +100,22 @@ func UnFriend(userId, friendId int64) (bool, error) {
 		return false, err
 	}
 	if numRows == 2 {
+
+		payload := map[string]interface{}{
+			"action": "un_friend",
+			"payload": map[string]interface{}{
+				"user_id":   userId,
+				"friend_id": friendId,
+			},
+		}
+
+		defer func() {
+
+			Instance.SendJson(friendId, payload)
+			Instance.SendJson(userId, payload)
+
+		}()
+
 		return true, nil
 	} else {
 		return false, errors.New("an error delete friendship")
@@ -123,7 +166,6 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 		search = `%` + search + `%`
 
 		rows, err := db.DB.List(q, userId, userId, search, search, search, limit, skip)
-
 
 		if err != nil {
 
