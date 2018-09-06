@@ -11,15 +11,15 @@ import (
 )
 
 type Group struct {
-	Id       int64  `json:"id"`
-	UserId   int64  `json:"user_id"`
-	Title    string `json:"title"`
-	Avatar   string `json:"avatar"`
-	Created  int64  `json:"created"`
-	Updated  int64  `json:"updated"`
-	Users    [] *User
-	Messages [] *Message
-	Unread   int64 `json:"unread"`
+	Id       int64       `json:"id"`
+	UserId   int64       `json:"user_id"`
+	Title    string      `json:"title"`
+	Avatar   string      `json:"avatar"`
+	Created  int64       `json:"created"`
+	Updated  int64       `json:"updated"`
+	Users    [] *User    `json:"users"`
+	Messages [] *Message `json:"messages"`
+	Unread   int64       `json:"unread"`
 }
 
 var GroupType = graphql.NewObject(

@@ -16,11 +16,6 @@ import (
 	"messenger/config"
 )
 
-const (
-	MysqlConnectUrl = "messenger:messenger@tcp(127.0.0.1:3306)/messenger?charset=utf8mb4&collation=utf8mb4_unicode_ci"
-	IsProduction    = false
-)
-
 type params struct {
 	Query         string      `json:"query"`
 	OperationName string      `json:"operationName,omitempty"`
@@ -44,7 +39,7 @@ func getBodyFromRequest(r *http.Request) (*params, error) {
 
 func Setup() {
 
-	_, err := db.InitDatabase(MysqlConnectUrl)
+	_, err := db.InitDatabase(config.MysqlConnectUrl)
 	if err != nil {
 		panic(errors.New("can not connect to database"))
 	}
@@ -56,7 +51,7 @@ func Setup() {
 func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "GET" {
-		if !IsProduction {
+		if !config.Production {
 			// Render GraphIQL
 			w.Write(dev.Content)
 			return

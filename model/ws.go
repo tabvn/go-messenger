@@ -8,12 +8,16 @@ import (
 	"net/http"
 	"github.com/satori/go.uuid"
 	"log"
+	"messenger/helper"
 )
 
 var upgrader = websocket.Upgrader{}
 
 const (
-	AUTH = "auth"
+	AUTH     = "auth"
+	CALL     = "call"
+	CALLEND  = "call_end"
+	CALLJOIN = "call_join"
 )
 
 type AuthMessage struct {
@@ -110,10 +114,183 @@ func (w *Ws) OnMessage(c *Client, message []byte) {
 
 		break
 
+	case CALL:
+
+		handleReceiveCallMessage(&m)
+
+		break
+
+	case CALLEND:
+
+		handleReceiveCallEnd(&m)
+
+		break
+
+	case CALLJOIN:
+
+		handleReceiveCallJoin(&m)
+
+		break
+
 	default:
 		break
 	}
 
+}
+
+func handleReceiveCallJoin(m *Msg) {
+
+	var c map[string]interface{}
+
+	err := json.Unmarshal(m.Payload, &c)
+
+	if err == nil {
+		to := helper.GetIds(c["to"])
+		gid, k := c["group_id"].(float64)
+		if !k {
+			return
+		}
+		uid, ok := c["user_id"].(float64)
+		if !ok {
+			return
+		}
+		fr, ok := c["from"].(float64)
+		if !ok {
+			return
+		}
+
+		from := int64(fr)
+
+		userId := int64(uid)
+		groupId := int64(gid)
+		if err != nil {
+			return
+		}
+
+		user, err := GetUser(userId)
+		if err != nil {
+			return
+		}
+
+		payload := map[string]interface{}{
+			"action": CALLJOIN,
+			"payload": map[string]interface{}{
+				"group_id": groupId,
+				"user": map[string]interface{}{
+					"id":         user.Id,
+					"first_name": user.FirstName,
+					"last_name":  user.LastName,
+					"avatar":     user.Avatar,
+					"status":     UserStatus(user.Online, user.CustomStatus),
+				},
+			},
+		}
+
+		// send to caller
+		Instance.SendJson(from, payload)
+
+		// send to other users
+		for _, id := range to {
+
+			if id != from && id != userId {
+				Instance.SendJson(id, payload)
+			}
+
+		}
+
+	}
+}
+
+func handleReceiveCallEnd(m *Msg) {
+
+	var c map[string]interface{}
+
+	err := json.Unmarshal(m.Payload, &c)
+
+	if err == nil {
+		to := helper.GetIds(c["to"])
+		gid, k := c["group_id"].(float64)
+		if !k {
+			return
+		}
+		fr, ok := c["from"].(float64)
+		if !ok {
+			return
+		}
+
+		from := int64(fr)
+		groupId := int64(gid)
+		if err != nil {
+			return
+		}
+
+		for _, userId := range to {
+
+			payload := map[string]interface{}{
+				"action": CALLEND,
+				"payload": map[string]interface{}{
+					"group_id": groupId,
+					"caller":   from,
+				},
+			}
+
+			Instance.SendJson(userId, payload)
+		}
+
+	}
+}
+
+func handleReceiveCallMessage(m *Msg) {
+
+	var c map[string]interface{}
+
+	err := json.Unmarshal(m.Payload, &c)
+
+	if err == nil {
+		to := helper.GetIds(c["to"])
+		gid, k := c["group_id"].(float64)
+		if !k {
+			return
+		}
+		fr, ok := c["from"].(float64)
+		if !ok {
+			return
+		}
+
+		from := int64(fr)
+		groupId := int64(gid)
+
+		fromUser, err := GetUser(from)
+		if err != nil {
+			return
+		}
+
+		for _, userId := range to {
+
+			group, e := LoadGroup(groupId, userId)
+			if e != nil {
+				continue
+			}
+
+			payload := map[string]interface{}{
+				"action": "calling",
+				"payload": map[string]interface{}{
+					"group_id": groupId,
+					"group":    group,
+					"caller": map[string]interface{}{
+						"id":         fromUser.Id,
+						"first_name": fromUser.FirstName,
+						"last_name":  fromUser.LastName,
+						"avatar":     fromUser.Avatar,
+						"status":     UserStatus(fromUser.Online, fromUser.CustomStatus),
+					},
+				},
+			}
+
+			Instance.SendJson(userId, payload)
+		}
+
+	}
 }
 
 func (w *Ws) Send(userId int64, message []byte) {
