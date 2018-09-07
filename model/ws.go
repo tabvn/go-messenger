@@ -14,10 +14,11 @@ import (
 var upgrader = websocket.Upgrader{}
 
 const (
-	AUTH     = "auth"
-	CALL     = "call"
-	CALLEND  = "call_end"
-	CALLJOIN = "call_join"
+	AUTH         = "auth"
+	CALL         = "call"
+	CALLEND      = "call_end"
+	CALLJOIN     = "call_join"
+	CALLEXCHANGE = "call_exchange"
 )
 
 type AuthMessage struct {
@@ -132,10 +133,40 @@ func (w *Ws) OnMessage(c *Client, message []byte) {
 
 		break
 
+	case CALLEXCHANGE:
+
+		handleReceiveCallExchange(&m)
+
+		break
+
 	default:
 		break
 	}
 
+}
+
+func handleReceiveCallExchange(m *Msg) {
+
+	var c map[string]interface{}
+
+	err := json.Unmarshal(m.Payload, &c)
+
+	if err == nil {
+
+		to, ok := c["to"].(float64)
+		if !ok {
+			return
+		}
+
+		userId := int64(to)
+
+		p := map[string]interface{}{
+			"action":  CALLEXCHANGE,
+			"payload": m.Payload,
+		}
+		Instance.SendJson(userId, p)
+
+	}
 }
 
 func handleReceiveCallJoin(m *Msg) {
@@ -351,7 +382,7 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 		Instance.OnMessage(client, message)
 
 		if err != nil {
-			log.Println("error:", err)
+
 			break
 		}
 	}
