@@ -1017,7 +1017,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 			Args: graphql.FieldConfigArgument{
 				"user": &graphql.ArgumentConfig{
 					Description:  "user_id, only allow set user_id for secret, other wise take user_id from auth",
-					Type:         graphql.NewNonNull(graphql.Int),
+					Type:         graphql.Int,
 					DefaultValue: 0,
 				},
 				"friend": &graphql.ArgumentConfig{

@@ -351,6 +351,10 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 
+
+
+
+
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
@@ -367,8 +371,10 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 
 	Instance.AddClient(client)
 
+
 	for {
 		_, message, err := c.ReadMessage()
+
 
 		if err != nil {
 

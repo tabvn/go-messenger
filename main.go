@@ -14,6 +14,7 @@ import (
 	"messenger/upload"
 	"github.com/rs/cors"
 	"messenger/config"
+	"database/sql"
 )
 
 type params struct {
@@ -56,10 +57,10 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 			w.Write(dev.Content)
 			return
 		}
-		content := []byte (`I'm Go!`)
-		w.Write(content)
+		//content := []byte (`I'm Go!`)
+		//w.Write(content)
 
-		return
+		//return
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -78,6 +79,11 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 		auth = r.URL.Query().Get("auth")
 	}
 
+	cookie := model.GetCookie(r, "token")
+	if cookie != auth {
+		model.SetCookie(w, "token", auth)
+	}
+
 	isSecret := model.CheckSecret(auth)
 
 	var ctx context.Context
@@ -87,6 +93,7 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		authentication, _ := model.VerifyToken(auth)
 		ctx = context.WithValue(context.Background(), "auth", authentication)
+
 	}
 
 	result := schema.ExecuteQuery(ctx, p.Query, p.OperationName, schema.Schema)
@@ -94,6 +101,51 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(result)
 }
 
+func enableCors(w *http.ResponseWriter) {
+
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+}
+
+func handleViewAttachment(w http.ResponseWriter, r *http.Request) {
+
+	cookie := model.GetCookie(r, "token")
+
+	if cookie == ""{
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+	enableCors(&w)
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	row, err := db.DB.FindOne("SELECT COUNT(*) as count FROM files WHERE name = ?", name)
+	if err != nil {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	var count sql.NullInt64
+
+	if row.Scan(&count) != nil {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
+	if count.Int64 > 0 {
+		http.ServeFile(w, r, config.UploadDir+"/"+name)
+		return
+	}
+
+	http.Error(w, "access denied", http.StatusForbidden)
+	return
+
+}
 func main() {
 
 	mux := http.NewServeMux()
@@ -109,10 +161,17 @@ func main() {
 	})
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   []string{"http://127.0.0.1:3000", "https://*.addictionrecovery.com", "http://*.addictionrecovery.com"},
 		AllowCredentials: true,
 		AllowedMethods:   []string{"POST", "GET", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization"},
+		AllowedHeaders: []string{"Accept", "Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization",
+			"Access-Control-Allow-Credentials",
+			"Access-Control-Allow-Origin",
+			"Origin",
+			"Access-Control-Request-Headers",
+			"Access-Control-Request-Method",
+			"Connection",
+		},
 		// Enable Debugging for testing, consider disabling in production
 		Debug: false,
 	})
@@ -126,7 +185,7 @@ func main() {
 	mux.HandleFunc("/ws", model.WebSocketHandler)
 	mux.HandleFunc("/upload", upload.HandleFileUpload)
 	mux.HandleFunc("/uploads", upload.HandleMultiUpload)
-	mux.HandleFunc("/attachment", model.HandleViewAttachment)
+	mux.HandleFunc("/attachment", handleViewAttachment)
 	mux.HandleFunc("/group/avatar", model.HandleViewGroupAvatar)
 
 	fs := http.FileServer(http.Dir(config.PublicDir))
