@@ -422,12 +422,16 @@ func VerifyToken(token string) (*Auth, error) {
 	row, err := db.DB.FindOne("SELECT * FROM tokens WHERE token=?", token)
 
 	if err != nil {
+		writeToLog("Token error " + err.Error(), "verify_token")
 		return nil, errors.New("invalid token")
 	}
 
 	t, err := scanToken(row)
 
 	if err != nil {
+
+		writeToLog("scan token error " + err.Error(), "verify_token")
+
 		return nil, errors.New("invalid token")
 	}
 
@@ -436,6 +440,8 @@ func VerifyToken(token string) (*Auth, error) {
 	u, err := user.Load()
 
 	if err != nil {
+		writeToLog("could not load user with token " + err.Error(), "verify_token")
+
 		return nil, errors.New("invalid token")
 	}
 

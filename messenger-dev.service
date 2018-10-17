@@ -1,0 +1,15 @@
+[Unit]
+Description= instance to serve messenger api
+Requires=mysql.service
+After=network.target
+After=mysql.service
+
+[Service]
+User=root
+Group=www-data
+
+Environment=GOPATH=/var/www/messenger-dev/
+ExecStart=/var/www/messenger-dev/messenger
+
+[Install]
+WantedBy=multi-user.target

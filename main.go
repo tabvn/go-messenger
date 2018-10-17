@@ -57,10 +57,10 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 			w.Write(dev.Content)
 			return
 		}
-		//content := []byte (`I'm Go!`)
-		//w.Write(content)
+		content := []byte (`v.1.0`)
+		w.Write(content)
 
-		//return
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -89,11 +89,11 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	var ctx context.Context
 
 	if isSecret {
+		
 		ctx = context.WithValue(context.Background(), "secret", isSecret)
 	} else {
 		authentication, _ := model.VerifyToken(auth)
 		ctx = context.WithValue(context.Background(), "auth", authentication)
-
 	}
 
 	result := schema.ExecuteQuery(ctx, p.Query, p.OperationName, schema.Schema)
@@ -113,7 +113,7 @@ func handleViewAttachment(w http.ResponseWriter, r *http.Request) {
 
 	cookie := model.GetCookie(r, "token")
 
-	if cookie == ""{
+	if cookie == "" {
 		http.Error(w, "access denied", http.StatusForbidden)
 		return
 	}
@@ -191,10 +191,8 @@ func main() {
 	fs := http.FileServer(http.Dir(config.PublicDir))
 	mux.Handle("/public/", http.StripPrefix("/public/", fs))
 
-	const PORT = 3007
+	fmt.Println("Server is running on port:", config.Port)
 
-	fmt.Println("Server is running on port:", PORT)
-
-	panic(http.ListenAndServe(":"+strconv.Itoa(PORT), handler))
+	panic(http.ListenAndServe(":"+strconv.Itoa(config.Port), handler))
 
 }

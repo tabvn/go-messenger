@@ -7,6 +7,7 @@ import (
 	"messenger/db"
 	"database/sql"
 	"github.com/satori/go.uuid"
+	"fmt"
 )
 
 type Token struct {
@@ -48,6 +49,8 @@ func GetAuth(params graphql.ResolveParams) (*Auth) {
 		a, ok := auth.(*Auth)
 
 		if !ok {
+			fmt.Println("GetAuth: An error getting auh", ok)
+			writeToLog("GetAuth: An error getting auh", "auth_error")
 			return nil
 		}
 
