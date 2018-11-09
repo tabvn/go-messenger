@@ -77,13 +77,20 @@ func InitDatabase(url string) (*Database, error) {
 
 func (db *Database) Insert(query string, args ...interface{}) (int64, error) {
 
-	stmt, prepareErr := DB.Prepare(query)
+	/*stmt, prepareErr := DB.Prepare(query)
 
 	if prepareErr != nil {
 		return 0, prepareErr
 	}
 
+	defer stmt.Close()
+
 	r, err := stmt.Exec(args...)
+
+	*/
+
+
+	r, err := DB.conn.Exec(query, args...)
 
 	if err != nil {
 		return 0, fmt.Errorf("%v", err)
@@ -107,12 +114,16 @@ func (db *Database) Insert(query string, args ...interface{}) (int64, error) {
 
 func (db *Database) InsertMany(query string, args ...interface{}) (int64, error) {
 
-	stmt, prepareErr := DB.Prepare(query)
+	/*stmt, prepareErr := DB.Prepare(query)
 
 	if prepareErr != nil {
 		return 0, prepareErr
 	}
 	r, err := stmt.Exec(args...)
+
+	*/
+
+	r, err := DB.conn.Exec(query, args...)
 	if err != nil {
 		return 0, fmt.Errorf("%v", err)
 	}
@@ -123,12 +134,19 @@ func (db *Database) InsertMany(query string, args ...interface{}) (int64, error)
 }
 func (db *Database) Update(query string, args ...interface{}) (int64, error) {
 
-	stmt, e := DB.conn.Prepare(query)
+	/*stmt, e := DB.conn.Prepare(query)
 	if e != nil {
 		return 0, e
 	}
+	//need close
+	defer stmt.Close()
 
 	r, err := stmt.Exec(args...)
+
+	*/
+
+	r, err := DB.conn.Exec(query, args...)
+
 	if err != nil {
 		return 0, fmt.Errorf("%v", err)
 	}
@@ -141,6 +159,7 @@ func (db *Database) Update(query string, args ...interface{}) (int64, error) {
 func (db *Database) Count(query string, args ...interface{}) (int, error) {
 
 	var count int
+
 	row := DB.conn.QueryRow(query, args...)
 
 	err := row.Scan(&count)
@@ -163,26 +182,46 @@ func (db *Database) Get(table string, id int64) (*sql.Row, error) {
 	}
 
 	row := stmt.QueryRow(id)
+
 	return row, nil
 
 }
 func (db *Database) FindOne(query string, args ...interface{}) (*sql.Row, error) {
 
-	stmt, err := DB.Prepare(query)
+	/*stmt, err := DB.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+
+	defer stmt.Close()
 
 	if err != nil {
 		return nil, err
 	}
 
 	row := stmt.QueryRow(args...)
+	*/
+
+	row := DB.conn.QueryRow(query, args...)
+
 	return row, nil
 }
 
 func (db *Database) Delete(query string, args ...interface{}) (int64, error) {
 
-	stmt, _ := DB.conn.Prepare(query)
+	/*stmt, e := DB.conn.Prepare(query)
 
-	r, err := stmt.Exec(args...)
+	if e != nil {
+		return 0, e
+	}
+
+	defer stmt.Close()
+
+	r, err := stmt.Exec(query, args)
+	*/
+
+	r, err := DB.conn.Exec(query, args...)
+
 	if err != nil {
 		return 0, fmt.Errorf("could not execute statement: %v", err)
 	}
@@ -194,9 +233,19 @@ func (db *Database) Delete(query string, args ...interface{}) (int64, error) {
 
 func (db *Database) DeleteMany(query string, args ...interface{}) (int64, error) {
 
-	stmt, _ := DB.conn.Prepare(query)
+	/*stmt, er := DB.conn.Prepare(query)
+
+	if er != nil {
+		return 0, er
+	}
+
+	defer stmt.Close()
 
 	r, err := stmt.Exec(args...)
+	*/
+
+	r, err := DB.conn.Exec(query, args...)
+
 	if err != nil {
 		return 0, fmt.Errorf("could not execute statement: %v", err)
 	}
@@ -212,14 +261,18 @@ func (db *Database) DeleteMany(query string, args ...interface{}) (int64, error)
 
 func (db *Database) List(query string, args ...interface{}) (*sql.Rows, error) {
 
-	stmt, err := DB.Prepare(query)
+	/*stmt, err := DB.Prepare(query)
 
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := stmt.Query(args...)
+	defer stmt.Close()
 
+	rows, err := stmt.Query(args...)
+	*/
+
+	rows, err := DB.conn.Query(query, args...)
 	return rows, err
 
 }

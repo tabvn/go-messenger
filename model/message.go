@@ -190,9 +190,12 @@ func (m *Message) Load() (*Message, error) {
 
 	messages, err := scanMessage(rows)
 
+	defer rows.Close()
+
 	if err != nil {
 		return nil, err
 	}
+
 
 	if len(messages) > 0 {
 		return messages[0], nil
@@ -220,6 +223,8 @@ func Messages(groupId int64, userId int64, limit int, skip int) ([] *Message, er
 
 	messages, err := scanMessage(rows)
 
+	defer rows.Close()
+
 	if err != nil {
 		return nil, err
 	}
@@ -245,6 +250,7 @@ func UnreadMessages(userId int64, limit int, skip int) ([] *Message, error) {
 	rows, err := db.DB.List(query, userId, limit, skip)
 
 	messages, err := scanMessage(rows)
+	defer rows.Close()
 
 	if err != nil {
 		return nil, err
@@ -453,12 +459,14 @@ func GetGroupMemberOnline(userId, groupId int64) ([] int64) {
 
 	var ids [] int64
 
-	q := `SELECT DISTINCT(m.user_id) FROM members AS m INNER JOIN users AS u ON m.user_id = u.id AND u.online = 1 WHERE m.group_id=? AND m.user_id NOT IN (SELECT b.user FROM blocked AS b WHERE b.author =?)`
+	q := `SELECT DISTINCT(m.user_id) FROM members AS m INNER JOIN users AS u ON m.user_id = u.id AND u.online = 1 WHERE m.group_id=? AND m.user_id NOT IN (SELECT b.user FROM blocked AS b WHERE b.author =?) AND m.user_id NOT IN (SELECT b.author FROM blocked AS b WHERE b.user =?)`
 
-	rows, err := db.DB.List(q, groupId, userId)
+	rows, err := db.DB.List(q, groupId, userId, userId)
 	if err != nil {
 		return nil
 	}
+
+	defer rows.Close()
 
 	for rows.Next() {
 		var id sql.NullInt64
@@ -551,7 +559,12 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 				return nil, err
 			}
 
+
+
+
 			files, err := scanFiles(rows)
+
+			defer rows.Close()
 
 			if err != nil {
 				return nil, err
@@ -591,6 +604,7 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 		}
 
 		defer NotifyMessageToMembers(groupId, *message)
+
 
 		return message, nil
 	}

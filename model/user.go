@@ -582,6 +582,10 @@ func Users(userId int64, search string, limit int, skip int) ([]*User, error) {
 
 	var users []*User
 
+
+	defer rows.Close()
+
+
 	for rows.Next() {
 		user, err := scanUser(rows)
 
@@ -593,6 +597,8 @@ func Users(userId int64, search string, limit int, skip int) ([]*User, error) {
 		users = append(users, user)
 
 	}
+
+
 
 	return users, nil
 }
@@ -658,6 +664,8 @@ func FindUserToNotify(userId int64) ([] int64) {
 	if err != nil {
 		return nil
 	}
+
+	defer rows.Close()
 
 	for rows.Next() {
 		var id sql.NullInt64

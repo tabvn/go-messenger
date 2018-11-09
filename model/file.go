@@ -31,6 +31,7 @@ func scanFiles(rows *sql.Rows) ([] *File, error) {
 		created  sql.NullInt64
 	)
 
+
 	for rows.Next() {
 
 		err := rows.Scan(&id, &userId, &name, &original, &fileType, &size, &created)

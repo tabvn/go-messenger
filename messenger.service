@@ -10,6 +10,12 @@ Group=www-data
 
 Environment=GOPATH=/var/www/messenger/
 ExecStart=/var/www/messenger/messenger
+ExecReload=/bin/kill -USR1 $MAINPID
+KillMode=mixed
+KillSignal=SIGQUIT
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+LimitNPROC=512
 
 [Install]
 WantedBy=multi-user.target

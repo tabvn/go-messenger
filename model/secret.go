@@ -30,5 +30,6 @@ func CheckSecret(secret string) (bool) {
 		return true
 	}
 
+
 	return false
 }

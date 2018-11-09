@@ -45,7 +45,7 @@ func Setup() {
 		panic(errors.New("can not connect to database"))
 	}
 
-	db.DB.Query("UPDATE users SET online =?", false)
+	db.DB.Update("UPDATE users SET online =?", false)
 
 }
 
@@ -89,7 +89,7 @@ func graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	var ctx context.Context
 
 	if isSecret {
-		
+
 		ctx = context.WithValue(context.Background(), "secret", isSecret)
 	} else {
 		authentication, _ := model.VerifyToken(auth)
@@ -161,7 +161,7 @@ func main() {
 	})
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://127.0.0.1:3000", "https://*.addictionrecovery.com", "http://*.addictionrecovery.com"},
+		AllowedOrigins:   []string{"http://drupal7.test","http://127.0.0.1:3000", "https://*.addictionrecovery.com", "http://*.addictionrecovery.com"},
 		AllowCredentials: true,
 		AllowedMethods:   []string{"POST", "GET", "OPTIONS"},
 		AllowedHeaders: []string{"Accept", "Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization",

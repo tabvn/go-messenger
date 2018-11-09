@@ -261,6 +261,8 @@ func LoadGroup(id int64, userId int64) (*Group, error) {
 
 	result, err := scanGroup(rows)
 
+	defer rows.Close()
+
 	if len(result) < 1 {
 		return nil, errors.New("not found")
 	}
@@ -289,6 +291,7 @@ func searchGroups(search string, userId int64, limit, skip int) ([]int64, error)
 		return ids, err
 	}
 
+	defer r.Close()
 	var scanId sql.NullInt64
 
 	for r.Next() {
@@ -339,6 +342,8 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		}
 
 		result, errScan := scanGroup(rows)
+
+		defer rows.Close()
 
 		if errScan != nil {
 			return nil, errScan
@@ -397,6 +402,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 			return nil, err
 		}
 
+		defer rr.Close()
 		result, err := scanGroup(rr)
 		if err != nil {
 			return nil, err

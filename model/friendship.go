@@ -141,6 +141,8 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 		if err != nil {
 			return nil, err
 		}
+		defer rows.Close()
+
 		for rows.Next() {
 			user, err := scanUser(rows)
 
@@ -171,6 +173,8 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 
 			return nil, err
 		}
+
+		defer rows.Close()
 
 		for rows.Next() {
 			user, err := scanUser(rows)
