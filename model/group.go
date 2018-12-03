@@ -549,6 +549,67 @@ func LeftGroup(userId, groupId int64) (int64, error) {
 	return result, err
 }
 
+func RemoveGroupUser(removeByUserId, userId, groupId int64) (error) {
+
+	removeByUser, er := GetUser(removeByUserId)
+
+	if er != nil {
+		return er
+	}
+	ids := GetGroupMemberOnline(userId, groupId)
+
+	q := `DELETE FROM members WHERE user_id = ? AND group_id =?`
+
+	_, err := db.DB.Delete(q, userId, groupId)
+
+	type DeleteBy struct {
+		ID        int64  `json:"id"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+		Avatar    string `json:"avatar"`
+		UID       int64  `json:"uid"`
+	}
+
+	type Payload struct {
+		GroupID  int64    `json:"group_id"`
+		UserID   int64    `json:"user_id"`
+		DeleteBy DeleteBy `json:"delete_by"`
+	}
+
+	type RemoveGroupUserNotification struct {
+		Action  string  `json:"action"`
+		Payload Payload `json:"payload"`
+	}
+
+	defer func() {
+		if err == nil {
+			// notify user left group
+
+			notificationMessage := RemoveGroupUserNotification{
+				Action: "remove_group_user",
+				Payload: Payload{
+					GroupID: groupId,
+					UserID:  userId,
+					DeleteBy: DeleteBy{
+						ID:        removeByUserId,
+						FirstName: removeByUser.FirstName,
+						LastName:  removeByUser.LastName,
+						UID:       removeByUser.Uid,
+						Avatar:    removeByUser.Avatar,
+					},
+				},
+			}
+
+			for _, id := range ids {
+				//Instance.Send(id, []byte(`{"action": "remove_group_user", "payload": {"group_id": `+strconv.Itoa(int(groupId))+`,"user_id": `+strconv.Itoa(int(userId))+`}}`))
+				Instance.SendJson(id, notificationMessage)
+			}
+		}
+	}()
+
+	return err
+}
+
 func FindOrCreateGroup(authorId int64, userIds [] int64, title, avatar string) (int64, error) {
 
 	// find group with all members

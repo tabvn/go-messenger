@@ -1011,6 +1011,67 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 			},
 		},
+		"removeGroupUser": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "remove user from group chat",
+			Args: graphql.FieldConfigArgument{
+				"user_id": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 0,
+				},
+				"group_id": &graphql.ArgumentConfig{
+					Type: graphql.NewNonNull(graphql.Int),
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				userId, ok := params.Args["user_id"].(int)
+				groupId, groupOk := params.Args["group_id"].(int)
+
+				if !ok {
+					return nil, errors.New("invalid id")
+				}
+				if ! groupOk {
+
+					return nil, errors.New("invalid group id")
+				}
+
+				var auth *model.Auth
+
+				// allow super or authenticated user
+				secret := params.Context.Value("secret")
+
+				uid := int64(userId)
+				gid := int64(groupId)
+
+				var removeByUserId int64
+
+				if secret == nil {
+					auth = model.GetAuth(params)
+					if auth == nil {
+						return nil, errors.New("access denied")
+					} else {
+
+						// check if user has perm to remove
+
+						removeByUserId = auth.UserId
+						canRemove := model.CanDeleteMember(auth.UserId, uid, gid)
+						if !canRemove {
+							return nil, errors.New("can not remove user")
+						}
+					}
+				}
+
+				err := model.RemoveGroupUser(removeByUserId, uid, gid)
+
+				if err != nil {
+					return false, errors.New("not found")
+				}
+
+				return true, nil
+
+			},
+		},
 		"addFriend": &graphql.Field{
 			Type:        graphql.Boolean,
 			Description: "add friend",

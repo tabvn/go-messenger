@@ -501,7 +501,7 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 	// we need check if members in group is more than 1
 
 	body = sanitize.HTML(body)
-	row, err := db.DB.FindOne("SELECT COUNT(*) FROM members WHERE group_id =?", groupId)
+	row, err := db.DB.FindOne("SELECT COUNT(*) FROM members WHERE group_id =? AND user_id=?", groupId, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -511,8 +511,8 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 		return nil, errors.New("can not send message")
 	}
 
-	if count < 2 {
-		return nil, errors.New("no member in conversation")
+	if count < 1 {
+		return nil, errors.New("your message could not be sent")
 	}
 
 	unixTime := helper.GetUnixTimestamp()
