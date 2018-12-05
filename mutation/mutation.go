@@ -309,9 +309,9 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					return nil, errors.New("invalid user_id")
 				}
 
-				bool := model.UpdateUserStatus(uid, true, status)
+				isOK := model.UpdateUserStatus(uid, true, status)
 
-				return bool, nil
+				return isOK, nil
 
 			},
 		},
@@ -496,6 +496,53 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				}
 
 				return message, nil
+
+			},
+		},
+
+		"responseInvite": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "create conversation",
+			Args: graphql.FieldConfigArgument{
+				"user_id": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 0,
+					Description:  "user_id owner of group",
+				},
+				"group_id": &graphql.ArgumentConfig{
+					Type: graphql.NewNonNull(graphql.Int),
+				},
+				"accept": &graphql.ArgumentConfig{
+					Type:         graphql.Boolean,
+					DefaultValue: true,
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				uid := params.Args["user_id"].(int)
+				gid := params.Args["group_id"].(int)
+				accept := params.Args["accept"].(bool)
+				secret := params.Context.Value("secret")
+
+				userId := int64(uid)
+				groupId := int64(gid)
+
+				var auth *model.Auth
+
+				if secret == nil {
+					auth = model.GetAuth(params)
+
+					if auth == nil {
+						return nil, errors.New("access denied")
+					}
+
+					userId = auth.UserId
+
+				}
+
+				err := model.ResponseInvite(userId, groupId, accept)
+
+				return true, err
 
 			},
 		},

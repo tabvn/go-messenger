@@ -196,7 +196,6 @@ func (m *Message) Load() (*Message, error) {
 		return nil, err
 	}
 
-
 	if len(messages) > 0 {
 		return messages[0], nil
 	}
@@ -459,7 +458,7 @@ func GetGroupMemberOnline(userId, groupId int64) ([] int64) {
 
 	var ids [] int64
 
-	q := `SELECT DISTINCT(m.user_id) FROM members AS m INNER JOIN users AS u ON m.user_id = u.id AND u.online = 1 WHERE m.group_id=? AND m.user_id NOT IN (SELECT b.user FROM blocked AS b WHERE b.author =?) AND m.user_id NOT IN (SELECT b.author FROM blocked AS b WHERE b.user =?)`
+	q := `SELECT DISTINCT(m.user_id) FROM members AS m INNER JOIN users AS u ON m.user_id = u.id AND u.online = 1 WHERE m.group_id=? AND m.blocked = 0 AND m.accepted <> 2 AND m.user_id NOT IN (SELECT b.user FROM blocked AS b WHERE b.author =?) AND m.user_id NOT IN (SELECT b.author FROM blocked AS b WHERE b.user =?)`
 
 	rows, err := db.DB.List(q, groupId, userId, userId)
 	if err != nil {
@@ -515,6 +514,10 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 		return nil, errors.New("your message could not be sent")
 	}
 
+	// we may check and update members accepted
+
+	db.DB.Update("UPDATE members SET accepted = 1 WHERE user_id=? AND group_id=?", userId, groupId)
+
 	unixTime := helper.GetUnixTimestamp()
 	messageId, err := db.DB.Insert(`INSERT INTO messages (group_id, user_id, body, emoji, gif, created, updated) VALUES (?,?,?,?,?,?,?)`,
 		groupId, userId, body, emoji, gif, unixTime, unixTime)
@@ -559,9 +562,6 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 				return nil, err
 			}
 
-
-
-
 			files, err := scanFiles(rows)
 
 			defer rows.Close()
@@ -604,7 +604,6 @@ func CreateMessage(groupId int64, userId int64, body string, emoji bool, gif str
 		}
 
 		defer NotifyMessageToMembers(groupId, *message)
-
 
 		return message, nil
 	}
