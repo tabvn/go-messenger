@@ -144,6 +144,62 @@ var Query = graphql.NewObject(
 					return users, err
 				},
 			},
+			"blockedUsers": &graphql.Field{
+				Type:        graphql.NewList(model.UserType),
+				Description: "Get blocked users",
+				Args: graphql.FieldConfigArgument{
+					"user_id": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
+					"limit": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 50,
+					},
+					"skip": &graphql.ArgumentConfig{
+						Type:         graphql.Int,
+						DefaultValue: 0,
+					},
+				},
+				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+					var auth *model.Auth
+
+					uid, ok := params.Args["user_id"].(int)
+
+					if !ok {
+						return nil, errors.New("invalid user_id")
+					}
+					limit := params.Args["limit"].(int)
+					skip := params.Args["skip"].(int)
+
+					userId := int64(uid)
+
+					// allow super or authenticated user
+					secret := params.Context.Value("secret")
+					if secret == nil {
+						auth = model.GetAuth(params)
+						if auth == nil {
+							return nil, errors.New("access denied")
+						} else {
+							userId = auth.UserId
+						}
+					}
+
+					users, err := model.GetBlockedUsers(userId, limit, skip)
+
+					if secret == nil {
+						for _, u := range users {
+							u.Email = ""
+						}
+					}
+
+					if err != nil {
+						return nil, err
+					}
+					return users, err
+				},
+			},
 			"countUsers": &graphql.Field{
 				Type:        graphql.Int,
 				Description: "Get user list",
