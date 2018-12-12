@@ -22,24 +22,25 @@ const (
 )
 
 type User struct {
-	Id           int64  `json:"id"`
-	Uid          int64  `json:"uid"`
-	FirstName    string `json:"first_name"`
-	LastName     string `json:"last_name"`
-	Email        string `json:"email"`
-	Password     string `json:"password"`
-	Avatar       string `json:"avatar"`
-	Online       bool   `json:"online"`
-	CustomStatus string `json:"custom_status"`
-	Status       string `json:"status"`
-	Location     string `json:"location"`
-	Work         string `json:"work"`
-	School       string `json:"school"`
-	About        string `json:"about"`
-	Created      int64  `json:"created"`
-	Updated      int64  `json:"updated"`
-	Friend       bool   `json:"friend"`
-	Blocked      bool   `json:"blocked"`
+	Id                int64  `json:"id"`
+	Uid               int64  `json:"uid"`
+	FirstName         string `json:"first_name"`
+	LastName          string `json:"last_name"`
+	Email             string `json:"email"`
+	Password          string `json:"password"`
+	Avatar            string `json:"avatar"`
+	Online            bool   `json:"online"`
+	CustomStatus      string `json:"custom_status"`
+	Status            string `json:"status"`
+	Location          string `json:"location"`
+	Work              string `json:"work"`
+	School            string `json:"school"`
+	About             string `json:"about"`
+	Created           int64  `json:"created"`
+	Updated           int64  `json:"updated"`
+	Friend            bool   `json:"friend"`
+	FriendRequestSent bool   `json:"friend_request_sent"`
+	Blocked           bool   `json:"blocked"`
 }
 
 var UserType = graphql.NewObject(
@@ -92,6 +93,9 @@ var UserType = graphql.NewObject(
 				Type: graphql.Boolean,
 			},
 			"blocked": &graphql.Field{
+				Type: graphql.Boolean,
+			},
+			"friend_request_sent": &graphql.Field{
 				Type: graphql.Boolean,
 			},
 		},
@@ -304,11 +308,13 @@ func scanUser(s db.RowScanner) (*User, error) {
 		updated      sql.NullInt64
 		friendship   sql.NullInt64
 		blocked      sql.NullInt64
+		friendStatus sql.NullInt64
 	)
 
 	if err := s.Scan(&id, &uid, &firstName, &lastName, &email, &password, &avatar,
-		&online, &customStatus, &location, &work, &school, &about, &created, &updated, &friendship, &blocked);
+		&online, &customStatus, &location, &work, &school, &about, &created, &updated, &friendship, &blocked, &friendStatus);
 		err != nil {
+
 		return nil, err
 	}
 
@@ -316,6 +322,7 @@ func scanUser(s db.RowScanner) (*User, error) {
 
 	var isFriend = false
 	var isBlocked = false
+	var isRequestFriendSent = false
 
 	if friendship.Int64 > 0 {
 		isFriend = true
@@ -323,25 +330,29 @@ func scanUser(s db.RowScanner) (*User, error) {
 	if blocked.Int64 > 0 {
 		isBlocked = true
 	}
+	if friendStatus.Valid && friendStatus.Int64 == 0 {
+		isRequestFriendSent = true
+	}
 	user := &User{
-		Id:           id,
-		Uid:          uid,
-		FirstName:    firstName.String,
-		LastName:     lastName.String,
-		Email:        email.String,
-		Password:     password.String,
-		Avatar:       avatar.String,
-		Online:       online.Bool,
-		Status:       onlineStatus,
-		CustomStatus: customStatus.String,
-		Location:     location.String,
-		Work:         work.String,
-		School:       school.String,
-		About:        about.String,
-		Created:      created.Int64,
-		Updated:      updated.Int64,
-		Friend:       isFriend,
-		Blocked:      isBlocked,
+		Id:                id,
+		Uid:               uid,
+		FirstName:         firstName.String,
+		LastName:          lastName.String,
+		Email:             email.String,
+		Password:          password.String,
+		Avatar:            avatar.String,
+		Online:            online.Bool,
+		Status:            onlineStatus,
+		CustomStatus:      customStatus.String,
+		Location:          location.String,
+		Work:              work.String,
+		School:            school.String,
+		About:             about.String,
+		Created:           created.Int64,
+		Updated:           updated.Int64,
+		Friend:            isFriend,
+		Blocked:           isBlocked,
+		FriendRequestSent: isRequestFriendSent,
 	}
 
 	return user, nil
@@ -355,10 +366,10 @@ func (u *User) Load() (*User, error) {
 	var err error
 
 	if u.Uid > 0 {
-		row, err = db.DB.FindOne(`SELECT u.*, count(id), count(created)  FROM users AS u  WHERE uid = ?`, u.Uid)
+		row, err = db.DB.FindOne(`SELECT u.*, count(id), count(created), count(updated)  FROM users AS u  WHERE uid = ?`, u.Uid)
 
 	} else {
-		row, err = db.DB.FindOne(`SELECT u.*, count(id), count(created)  FROM users AS u  WHERE id = ?`, u.Id)
+		row, err = db.DB.FindOne(`SELECT u.*, count(id), count(created) , count(updated) FROM users AS u  WHERE id = ?`, u.Id)
 	}
 
 	if err != nil {
@@ -586,19 +597,20 @@ func Users(userId int64, search string, limit int, skip int) ([]*User, error) {
 
 	if search == "" {
 
-		q := `SELECT u.*, f.id, b.id friendship FROM users as u 
-			LEFT JOIN friendship as f ON  f.friend_id = u.id AND f.user_id =? AND f.status = 1 
+		q := `SELECT u.*, f.id, b.id, f.status FROM users as u 
+			LEFT JOIN friendship as f ON  f.friend_id = u.id AND f.user_id =? AND f.status != 2 
 			LEFT JOIN blocked as b ON b.author =? AND b.user = u.id WHERE 
 			u.id NOT IN (SELECT user FROM blocked WHERE author =? AND user = u.id)
 			AND u.id NOT IN (SELECT author FROM blocked WHERE author = u.id AND user = ?) 
 			ORDER BY created DESC LIMIT ? OFFSET ?`
 
 		rows, err = db.DB.List(q, userId, userId, userId, userId, limit, skip)
+
 	} else {
 
 		like := "%" + search + "%"
-		q := `SELECT u.*, f.id, b.id friendship FROM users as u 
-			LEFT JOIN friendship as f ON  f.friend_id = u.id AND f.user_id =? AND f.status = 1 
+		q := `SELECT u.*, f.id, b.id, f.status FROM users as u 
+			LEFT JOIN friendship as f ON  f.friend_id = u.id AND f.user_id =? AND f.status != 2 
 			LEFT JOIN blocked as b ON b.author =? AND b.user = u.id 
 			WHERE 
 			u.id NOT IN (SELECT user FROM blocked WHERE author =? AND user = u.id)
@@ -606,6 +618,7 @@ func Users(userId int64, search string, limit int, skip int) ([]*User, error) {
 			AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?)
 			ORDER BY created DESC LIMIT ? OFFSET ?`
 		rows, err = db.DB.List(q, userId, userId, userId, userId, like, like, like, limit, skip)
+
 	}
 
 	if err != nil {

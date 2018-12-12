@@ -940,6 +940,55 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 			},
 		},
+		"updateGroup": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "update group",
+			Args: graphql.FieldConfigArgument{
+				"id": &graphql.ArgumentConfig{
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+					Description:  "group id",
+				},
+				"title": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+				"avatar": &graphql.ArgumentConfig{
+					Type:         graphql.String,
+					DefaultValue: "",
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				id := params.Args["id"].(int)
+				title := params.Args["title"].(string)
+				avatar := params.Args["avatar"].(string)
+
+				secret := params.Context.Value("secret")
+
+				groupId := int64(id)
+				var auth *model.Auth
+				var userId int64
+
+				if secret == nil {
+					auth = model.GetAuth(params)
+
+					if auth == nil {
+						return false, errors.New("access denied")
+					}
+
+					userId = auth.UserId
+
+					if !model.IsMemberOfGroup(userId, groupId) {
+						return nil, errors.New("access denied")
+					}
+
+				}
+
+				return model.UpdateGroup(groupId, title, avatar), nil
+
+			},
+		},
 		"joinGroup": &graphql.Field{
 			Type:        graphql.Boolean,
 			Description: "add user to group chat",
@@ -1172,6 +1221,70 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 				if err != nil {
 					return false, err
+				}
+
+				return result, err
+
+			},
+		},
+		"ResponseFriendRequest": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "remove friendship",
+			Args: graphql.FieldConfigArgument{
+				"user": &graphql.ArgumentConfig{
+					Description:  "block user",
+					Type:         graphql.Int,
+					DefaultValue: 0,
+				},
+				"friend": &graphql.ArgumentConfig{
+					Description:  "Friend user_id",
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+				"accept": &graphql.ArgumentConfig{
+					Description:  "Accept or deny",
+					Type:         graphql.Boolean,
+					DefaultValue: true,
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				userId, ok := params.Args["user"].(int)
+
+				friendId, fok := params.Args["friend"].(int)
+				accepted  := params.Args["accept"].(bool)
+
+				if !fok {
+					return nil, errors.New("invalid friend user_id")
+				}
+				if !ok {
+					return nil, errors.New("invalid user_id")
+				}
+
+				var auth *model.Auth
+
+				// allow super or authenticated user
+				secret := params.Context.Value("secret")
+
+				uid := int64(userId)
+				friend := int64(friendId)
+
+				if secret == nil {
+					auth = model.GetAuth(params)
+					if auth == nil {
+						return nil, errors.New("access denied")
+					} else {
+
+						// only take user_id from auth
+						uid = auth.UserId
+
+					}
+				}
+
+				result, err := model.ResponseFriendRequest(uid, friend, accepted)
+
+				if err != nil {
+					return false, errors.New("an error response friend request")
 				}
 
 				return result, err

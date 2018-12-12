@@ -45,12 +45,21 @@ func AddFriend(userId, friendId int64) (bool, error) {
 	if userId == friendId {
 		return false, errors.New("can not add your self")
 	}
+
+	status := 0  // default we set 0 as request friend is sent
+
+	count, _ := db.DB.Count("SELECT COUNT(*) FROM friendship WHERE (user_id =? AND friend_id =?) OR (user_id =? AND friend_id =?)", userId, friendId, friendId, userId)
+
+	if count > 0 {
+		return ResponseFriendRequest(userId, friendId, true)
+	}
+
 	// for now we auto accept from friend.
 	q := `INSERT INTO friendship (user_id, friend_id, status, created) VALUES (?, ?, ?, ?), (?, ?, ?, ?)`
 
 	created := helper.GetUnixTimestamp()
 
-	numRows, err := db.DB.InsertMany(q, userId, friendId, 1, created, friendId, userId, 1, created)
+	numRows, err := db.DB.InsertMany(q, userId, friendId, status, created, friendId, userId, 1, created)
 
 	if err != nil {
 
@@ -88,6 +97,27 @@ func AddFriend(userId, friendId int64) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func ResponseFriendRequest(userId, friendId int64, accepted bool) (bool, error) {
+
+	q := `UPDATE friendship SET status=? WHERE (user_id =? AND friend_id =?) OR (user_id =? AND friend_id =?)`
+
+	status := 1
+
+	if !accepted {
+		status = 0
+	}
+
+	isUpdate, err := db.DB.Update(q, status, userId, friendId, friendId, userId)
+	if err != nil {
+		return false, err
+	}
+	if isUpdate < 1 {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func UnFriend(userId, friendId int64) (bool, error) {

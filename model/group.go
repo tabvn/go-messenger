@@ -830,3 +830,15 @@ func ArchiveGroup(userId, groupId int64) (bool) {
 
 	return true
 }
+
+func UpdateGroup(id int64, title string, avatar string) (bool) {
+
+	unixTime := helper.GetUnixTimestamp()
+	updateId, err := db.DB.Update("UPDATE groups SET title=?, avatar=?, updated=? WHERE id=?", title, avatar, unixTime, id)
+
+	if updateId == 0 || err != nil {
+		return false
+	}
+
+	return true
+}
