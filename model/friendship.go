@@ -161,7 +161,7 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 	q := ""
 
 	if search == "" {
-		q = `SELECT u.*, f.id, b.id 
+		q = `SELECT u.*, f.id, b.id, f.status  
 		FROM friendship as f 
 		INNER JOIN users as u ON f.friend_id = u.id 
 		LEFT JOIN blocked as b ON b.author = ? AND b.user = u.id 
@@ -188,7 +188,7 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 	} else {
 
 		// search
-		q = `SELECT u.*, f.id, b.id 
+		q = `SELECT u.*, f.id, b.id, f.status 
 			FROM friendship as f 
 			INNER JOIN users as u ON f.friend_id = u.id 
 			LEFT JOIN blocked as b ON b.author = ? AND b.user = u.id 

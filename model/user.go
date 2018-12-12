@@ -560,7 +560,7 @@ func LogoutUser(token string) (bool, error) {
 
 func GetBlockedUsers(userId int64, limit int, skip int) ([]*User, error) {
 
-	q := `SELECT u.*, f.id, b.id friendship FROM users as u
+	q := `SELECT u.*, f.id, b.id, f.status FROM users as u
 			LEFT JOIN friendship as f ON  f.friend_id = u.id AND f.user_id =? AND f.status = 1 
 			INNER JOIN blocked as b ON b.author =? AND b.user = u.id
 			ORDER BY created DESC LIMIT ? OFFSET ?`
