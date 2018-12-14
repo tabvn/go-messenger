@@ -134,6 +134,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 		uAvatar       sql.NullString
 		uOnline       sql.NullBool
 		uCustomStatus sql.NullString
+		uPublished    sql.NullInt64
 
 		memberID       sql.NullInt64
 		memberUserID   sql.NullInt64
@@ -155,7 +156,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 
 		if err := rows.Scan(&memberGroupId, &memberUserID, &memberAddedBy, &memberID, &memberBlocked, &memberAccepted, &memberCreated, &id, &userId, &title, &avatar, &created, &updated, &messageId, &messageUserId, &messageGroupId, &messageBody, &messageEmoji,
 			&messageCreated, &messageUpdated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize,
-			&uUserId, &uid, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &unread, &messageUnread,
+			&uUserId, &uid, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &uPublished, &unread, &messageUnread,
 		);
 			err != nil {
 		}
@@ -201,6 +202,11 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 				Online:       uOnline.Bool,
 				CustomStatus: uCustomStatus.String,
 				Status:       UserStatus(uOnline.Bool, uCustomStatus.String),
+			}
+
+			if uPublished.Int64 == 0 {
+				user.FirstName = "Anonymous"
+				user.LastName = ""
 			}
 		}
 		if memberCreated.Int64 > 0 {
@@ -325,7 +331,7 @@ func LoadGroup(id int64, userId int64) (*Group, error) {
 	query := `
 		SELECT m.group_id, m.user_id, m.added_by, m.id,m.blocked, m.accepted, m.created, g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, f.name, f.original, f.type,
-		f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
+		f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status, u.published,
 		(SELECT COUNT(DISTINCT cm.id)
         FROM messages cm WHERE cm.group_id = g.id AND cm.id IN (SELECT message_id FROM unreads WHERE message_id = cm.id  AND user_id =? )
        ) as unread,
@@ -401,7 +407,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		query = `
 		SELECT m.group_id, m.user_id, m.added_by, m.id, m.blocked, m.accepted, m.created, g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, f.name, f.original, f.type,
-		f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
+		f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status, u.published,
 		(SELECT COUNT(DISTINCT cm.id)
         FROM messages cm WHERE cm.group_id = g.id AND cm.id IN (SELECT message_id FROM unreads WHERE message_id = cm.id  AND user_id =? )
        ) as unread, r.id as mread
@@ -461,7 +467,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		query = `
 			SELECT m.group_id, m.user_id, m.added_by, m.id, m.blocked, m.accepted, m.created, g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id,
 			message.body, message.emoji, message.created, message.updated, a.id, a.message_id, f.name, f.original, f.type,
-			f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status,
+			f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status, u.published,
 			(SELECT COUNT(DISTINCT cm.id)
 			FROM messages cm WHERE cm.group_id = g.id AND cm.id IN (SELECT message_id FROM unreads WHERE message_id = cm.id  AND user_id =? )
 		   ) as unread, r.id as mread

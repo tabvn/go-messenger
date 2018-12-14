@@ -1,0 +1,2 @@
+ALTER TABLE users ADD published TINYINT(1)  NULL  DEFAULT '1'  AFTER `updated`;
+UPDATE users SET published = 1;

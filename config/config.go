@@ -1,6 +1,6 @@
 package config
 
-var WorkingDir = "/var/www/messenger"
+var WorkingDir = "." //"/var/www/messenger"
 var (
 	Production      = false
 	UploadDir       = WorkingDir + "/storage"

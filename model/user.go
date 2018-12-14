@@ -41,6 +41,7 @@ type User struct {
 	Friend            bool   `json:"friend"`
 	FriendRequestSent bool   `json:"friend_request_sent"`
 	Blocked           bool   `json:"blocked"`
+	Published         int64  `json:"published"`
 }
 
 var UserType = graphql.NewObject(
@@ -97,6 +98,9 @@ var UserType = graphql.NewObject(
 			},
 			"friend_request_sent": &graphql.Field{
 				Type: graphql.Boolean,
+			},
+			"published": &graphql.Field{
+				Type: graphql.Int,
 			},
 		},
 	},
@@ -306,13 +310,14 @@ func scanUser(s db.RowScanner) (*User, error) {
 		about        sql.NullString
 		created      sql.NullInt64
 		updated      sql.NullInt64
+		published    sql.NullInt64
 		friendship   sql.NullInt64
 		blocked      sql.NullInt64
 		friendStatus sql.NullInt64
 	)
 
 	if err := s.Scan(&id, &uid, &firstName, &lastName, &email, &password, &avatar,
-		&online, &customStatus, &location, &work, &school, &about, &created, &updated, &friendship, &blocked, &friendStatus);
+		&online, &customStatus, &location, &work, &school, &about, &created, &updated, &published, &friendship, &blocked, &friendStatus);
 		err != nil {
 
 		return nil, err
@@ -353,8 +358,13 @@ func scanUser(s db.RowScanner) (*User, error) {
 		Friend:            isFriend,
 		Blocked:           isBlocked,
 		FriendRequestSent: isRequestFriendSent,
+		Published:         published.Int64,
 	}
 
+	if published.Int64 == 0 {
+		user.FirstName = "Anonymous"
+		user.LastName = ""
+	}
 	return user, nil
 }
 
