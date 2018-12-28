@@ -37,6 +37,10 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				"password": &graphql.ArgumentConfig{
 					Type: graphql.NewNonNull(graphql.String),
 				},
+				"published": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 1,
+				},
 			},
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
@@ -47,6 +51,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					Email:     params.Args["email"].(string),
 					Uid:       int64(params.Args["uid"].(int)),
 					Password:  params.Args["password"].(string),
+					Published: int64(params.Args["published"].(int)),
 				}
 
 				// only allow secret key to create user
@@ -95,6 +100,10 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				"password": &graphql.ArgumentConfig{
 					Type: graphql.NewNonNull(graphql.String),
 				},
+				"published": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 1,
+				},
 			},
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
@@ -105,6 +114,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					Email:     params.Args["email"].(string),
 					Uid:       int64(params.Args["uid"].(int)),
 					Password:  params.Args["password"].(string),
+					Published: int64(params.Args["published"].(int)),
 				}
 
 				// only allow secret key to create user
@@ -218,6 +228,10 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				"password": &graphql.ArgumentConfig{
 					Type: graphql.String,
 				},
+				"published": &graphql.ArgumentConfig{
+					Type:         graphql.Int,
+					DefaultValue: 1,
+				},
 			},
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 
@@ -251,6 +265,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 					Avatar:    params.Args["avatar"].(string),
 					Email:     params.Args["email"].(string),
 					Password:  params.Args["password"].(string),
+					Published: int64(params.Args["published"].(int)),
 				}
 
 				err := user.Update()
@@ -1252,7 +1267,7 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				userId, ok := params.Args["user"].(int)
 
 				friendId, fok := params.Args["friend"].(int)
-				accepted  := params.Args["accept"].(bool)
+				accepted := params.Args["accept"].(bool)
 
 				if !fok {
 					return nil, errors.New("invalid friend user_id")

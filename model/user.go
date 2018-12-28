@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"database/sql"
 	"strconv"
+	"messenger/config"
 )
 
 const (
@@ -156,12 +157,12 @@ func (u *User) Create() (error) {
 		return e
 	}
 
-	query := `INSERT INTO users (uid, first_name, last_name, email, avatar , password, created, updated) VALUES (?,?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO users (uid, first_name, last_name, email, avatar , password, published,created, updated) VALUES (?,?, ?, ?, ?, ?, ?, ?)`
 	currentTime := time.Now()
 	u.Created = currentTime.Unix()
 	u.Updated = currentTime.Unix()
 
-	result, err := db.DB.Insert(query, u.Uid, u.FirstName, u.LastName, u.Email, u.Avatar, u.Password, u.Created, u.Updated)
+	result, err := db.DB.Insert(query, u.Uid, u.FirstName, u.LastName, u.Email, u.Avatar, u.Password, u.Published, u.Created, u.Updated)
 
 	if err != nil {
 		return err
@@ -180,19 +181,19 @@ func (u *User) Update() (error) {
 	u.Updated = currentTime.Unix()
 
 	if u.Password == "" {
-		query := `UPDATE users SET first_name=?, last_name=?, email=?, avatar =?, updated=? WHERE id = ?`
-		_, err := db.DB.Update(query, u.FirstName, u.LastName, u.Email, u.Avatar, u.Updated, u.Id)
+		query := `UPDATE users SET first_name=?, last_name=?, email=?, avatar =?, updated=?, published=? WHERE id = ?`
+		_, err := db.DB.Update(query, u.FirstName, u.LastName, u.Email, u.Avatar, u.Updated, u.Published, u.Id)
 
 		if err != nil {
 			return err
 		}
 	} else {
-		query := `UPDATE users SET first_name=?, last_name=?, email=?, password=?, avatar =?, updated=? WHERE id = ?`
+		query := `UPDATE users SET first_name=?, last_name=?, email=?, password=?, avatar =?, updated=?, published=? WHERE id = ?`
 		password, err := HashPassword(u.Password)
 		if err != nil {
 			return err
 		}
-		_, updateErr := db.DB.Update(query, u.FirstName, u.LastName, u.Email, password, u.Avatar, u.Updated, u.Id)
+		_, updateErr := db.DB.Update(query, u.FirstName, u.LastName, u.Email, password, u.Avatar, u.Updated, u.Published, u.Id)
 
 		if updateErr != nil {
 			return err
@@ -361,10 +362,13 @@ func scanUser(s db.RowScanner) (*User, error) {
 		Published:         published.Int64,
 	}
 
-	if published.Int64 == 0 {
+	if published.Int64 == 0 || (published.Int64 == 2 && !isFriend){
 		user.FirstName = "Anonymous"
 		user.LastName = ""
+		user.Avatar = config.PrivateAvatar
 	}
+
+
 	return user, nil
 }
 

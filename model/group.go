@@ -8,6 +8,7 @@ import (
 	"errors"
 	"messenger/helper"
 	"strconv"
+	"messenger/config"
 )
 
 type Member struct {
@@ -135,6 +136,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 		uOnline       sql.NullBool
 		uCustomStatus sql.NullString
 		uPublished    sql.NullInt64
+		friendStatus sql.NullInt64
 
 		memberID       sql.NullInt64
 		memberUserID   sql.NullInt64
@@ -156,7 +158,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 
 		if err := rows.Scan(&memberGroupId, &memberUserID, &memberAddedBy, &memberID, &memberBlocked, &memberAccepted, &memberCreated, &id, &userId, &title, &avatar, &created, &updated, &messageId, &messageUserId, &messageGroupId, &messageBody, &messageEmoji,
 			&messageCreated, &messageUpdated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize,
-			&uUserId, &uid, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &uPublished, &unread, &messageUnread,
+			&uUserId, &uid, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &uPublished, &friendStatus,&unread, &messageUnread,
 		);
 			err != nil {
 		}
@@ -193,6 +195,11 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 
 		}
 		if uUserId.Int64 > 0 {
+
+			isFriend := false;
+			if friendStatus.Int64 == 1{
+				isFriend = true
+			}
 			user = &User{
 				Id:           uUserId.Int64,
 				Uid:          uid.Int64,
@@ -202,12 +209,16 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 				Online:       uOnline.Bool,
 				CustomStatus: uCustomStatus.String,
 				Status:       UserStatus(uOnline.Bool, uCustomStatus.String),
+				Published:uPublished.Int64,
+				Friend: isFriend,
 			}
 
-			if uPublished.Int64 == 0 {
+			if uPublished.Int64 == 0 || (uPublished.Int64 == 2 && friendStatus.Int64 != 1){
 				user.FirstName = "Anonymous"
 				user.LastName = ""
+				user.Avatar = config.PrivateAvatar
 			}
+
 		}
 		if memberCreated.Int64 > 0 {
 
@@ -331,7 +342,7 @@ func LoadGroup(id int64, userId int64) (*Group, error) {
 	query := `
 		SELECT m.group_id, m.user_id, m.added_by, m.id,m.blocked, m.accepted, m.created, g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, f.name, f.original, f.type,
-		f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status, u.published,
+		f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status, u.published, fr.status,
 		(SELECT COUNT(DISTINCT cm.id)
         FROM messages cm WHERE cm.group_id = g.id AND cm.id IN (SELECT message_id FROM unreads WHERE message_id = cm.id  AND user_id =? )
        ) as unread,
@@ -340,13 +351,14 @@ func LoadGroup(id int64, userId int64) (*Group, error) {
 		INNER JOIN members AS m ON m.group_id = g.id
 		LEFT JOIN users as u ON u.id = m.user_id LEFT JOIN messages as message ON message.group_id = g.id 
 		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id ) 
+		LEFT JOIN friendship as fr ON  fr.user_id = u.id AND fr.friend_id =?
 		LEFT JOIN unreads as r ON r.message_id = message.id AND r.user_id =?
 		LEFT JOIN attachments as a ON a.message_id = message.id
 		LEFT JOIN files as f ON a.file_id = f.id
 		WHERE g.id = ?
 		
 	`
-	rows, err := db.DB.List(query, userId, userId, id)
+	rows, err := db.DB.List(query, userId,userId, userId, id)
 
 	result, err := scanGroup(rows)
 
@@ -407,13 +419,14 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		query = `
 		SELECT m.group_id, m.user_id, m.added_by, m.id, m.blocked, m.accepted, m.created, g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id, 
 		message.body, message.emoji, message.created, message.updated, a.id, a.message_id, f.name, f.original, f.type,
-		f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status, u.published,
+		f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status, u.published, fr.status,
 		(SELECT COUNT(DISTINCT cm.id)
         FROM messages cm WHERE cm.group_id = g.id AND cm.id IN (SELECT message_id FROM unreads WHERE message_id = cm.id  AND user_id =? )
        ) as unread, r.id as mread
 		FROM groups as g 
 		INNER JOIN members AS m ON m.group_id = g.id
 		LEFT JOIN users as u ON u.id = m.user_id 
+		LEFT JOIN friendship as fr ON  fr.user_id = u.id AND fr.friend_id =?
 		LEFT JOIN messages as message ON message.group_id = g.id 
 		AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id AND id NOT IN (SELECT message_id FROM deleted WHERE user_id =?) AND user_id NOT IN (SELECT user FROM blocked WHERE author =? AND user = user_id)) 
 		LEFT JOIN unreads as r ON r.message_id = message.id AND r.user_id = message.user_id
@@ -425,7 +438,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		ORDER BY message.created DESC
 	`
 
-		rows, err = db.DB.List(query, userId, userId, userId, userId, limit, skip, userId)
+		rows, err = db.DB.List(query, userId,userId, userId, userId, userId, limit, skip, userId)
 
 		if err != nil {
 			return nil, err
@@ -467,13 +480,14 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		query = `
 			SELECT m.group_id, m.user_id, m.added_by, m.id, m.blocked, m.accepted, m.created, g.id, g.user_id, g.title, g.avatar, g.created, g.updated, message.id, message.user_id, message.group_id,
 			message.body, message.emoji, message.created, message.updated, a.id, a.message_id, f.name, f.original, f.type,
-			f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status, u.published,
+			f.size, u.id, u.uid, u.first_name, u.last_name, u.avatar, u.online, u.custom_status, u.published, fr.status
 			(SELECT COUNT(DISTINCT cm.id)
 			FROM messages cm WHERE cm.group_id = g.id AND cm.id IN (SELECT message_id FROM unreads WHERE message_id = cm.id  AND user_id =? )
 		   ) as unread, r.id as mread
 			FROM groups as g
 			INNER JOIN members AS m ON m.group_id = g.id
 			LEFT JOIN users as u ON u.id = m.user_id
+			LEFT JOIN friendship as fr ON  fr.user_id = u.id AND fr.friend_id =?
 			LEFT JOIN messages as message ON message.group_id = g.id
 			AND message.id = (SELECT MAX(id) FROM messages WHERE group_id = g.id AND user_id NOT IN (SELECT user FROM blocked WHERE author =? AND user = user_id))
 			LEFT JOIN unreads as r ON r.message_id = message.id AND r.user_id = message.user_id
@@ -485,7 +499,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 
 		query = fmt.Sprintf(query, whereInString)
 
-		rr, e := db.DB.List(query, userId, userId)
+		rr, e := db.DB.List(query, userId,userId, userId)
 
 		if e != nil {
 

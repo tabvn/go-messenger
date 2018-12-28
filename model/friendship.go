@@ -163,6 +163,7 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 	if search == "" {
 		q = `SELECT u.*, f.id, b.id, f.status  
 		FROM friendship as f 
+		INNER JOIN friendship as f1 ON f1.friend_id = f.user_id AND f1.status = 1
 		INNER JOIN users as u ON f.friend_id = u.id 
 		LEFT JOIN blocked as b ON b.author = ? AND b.user = u.id 
 		WHERE f.user_id = ? AND f.status = 1 ORDER BY f.created DESC LIMIT ? OFFSET ?`
@@ -188,8 +189,9 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 	} else {
 
 		// search
-		q = `SELECT u.*, f.id, b.id, f.status 
-			FROM friendship as f 
+		q = `SELECT u.*, f.id, b.id, f.status
+			FROM friendship as f
+			INNER JOIN friendship as f1 ON f1.friend_id = f.user_id AND f1.status = 1
 			INNER JOIN users as u ON f.friend_id = u.id 
 			LEFT JOIN blocked as b ON b.author = ? AND b.user = u.id 
 			WHERE f.user_id = ? AND f.status = 1 AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?) 
@@ -197,7 +199,7 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 
 		search = `%` + search + `%`
 
-		rows, err := db.DB.List(q, userId, userId, search, search, search, limit, skip)
+		rows, err := db.DB.List(q, userId,userId, search, search, search, limit, skip)
 
 		if err != nil {
 
