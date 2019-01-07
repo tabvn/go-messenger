@@ -520,5 +520,41 @@ var Query = graphql.NewObject(
 					return users, err
 				},
 			},
+			"og": &graphql.Field{
+				Type:        model.OgType,
+				Description: "Open graph tag",
+				Args: graphql.FieldConfigArgument{
+					"url": &graphql.ArgumentConfig{
+						Type:         graphql.String,
+						DefaultValue: "",
+					},
+
+				},
+				Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+					var auth *model.Auth
+
+					url := params.Args["url"].(string)
+
+
+					// allow super or authenticated user
+					secret := params.Context.Value("secret")
+					if secret == nil {
+						auth = model.GetAuth(params)
+						if auth == nil {
+							return nil, errors.New("access denied")
+						}
+					}
+
+					error , data := model.GetOgTag(url)
+
+					if error != nil{
+						return nil, error
+					}
+
+					return data, nil
+
+				},
+			},
 		},
 	})
