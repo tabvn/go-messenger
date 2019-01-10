@@ -1306,6 +1306,58 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 
 			},
 		},
+		"userTyping": &graphql.Field{
+			Type:        graphql.Boolean,
+			Description: "User typing",
+			Args: graphql.FieldConfigArgument{
+				"user_id": &graphql.ArgumentConfig{
+					Description:  "user id",
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+				"group_id": &graphql.ArgumentConfig{
+					Description:  "group_id",
+					Type:         graphql.NewNonNull(graphql.Int),
+					DefaultValue: 0,
+				},
+				"is_typing": &graphql.ArgumentConfig{
+					Description:  "is typing",
+					Type:         graphql.Boolean,
+					DefaultValue: true,
+				},
+			},
+			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
+
+				userId, _ := params.Args["user_id"].(int)
+
+				groupId, _ := params.Args["group_id"].(int)
+				isTyping := params.Args["is_typing"].(bool)
+
+
+				var auth *model.Auth
+
+				// allow super or authenticated user
+				secret := params.Context.Value("secret")
+				uid := int64(userId)
+				gid := int64(groupId)
+
+				if secret == nil {
+					auth = model.GetAuth(params)
+					if auth == nil {
+						return nil, errors.New("access denied")
+					} else {
+
+						// only take user_id from auth
+						uid = auth.UserId
+
+					}
+				}
+
+				result := model.UserIsTyping(gid, uid, isTyping)
+				return result, nil
+
+			},
+		},
 		"blockUser": &graphql.Field{
 			Type:        graphql.Boolean,
 			Description: "remove friendship",

@@ -136,7 +136,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 		uOnline       sql.NullBool
 		uCustomStatus sql.NullString
 		uPublished    sql.NullInt64
-		friendStatus sql.NullInt64
+		friendStatus  sql.NullInt64
 
 		memberID       sql.NullInt64
 		memberUserID   sql.NullInt64
@@ -158,7 +158,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 
 		if err := rows.Scan(&memberGroupId, &memberUserID, &memberAddedBy, &memberID, &memberBlocked, &memberAccepted, &memberCreated, &id, &userId, &title, &avatar, &created, &updated, &messageId, &messageUserId, &messageGroupId, &messageBody, &messageEmoji,
 			&messageCreated, &messageUpdated, &attachmentId, &attachmentMessageId, &attachmentName, &attachmentOriginal, &attachmentType, &attachmentSize,
-			&uUserId, &uid, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &uPublished, &friendStatus,&unread, &messageUnread,
+			&uUserId, &uid, &uFirstName, &uLastName, &uAvatar, &uOnline, &uCustomStatus, &uPublished, &friendStatus, &unread, &messageUnread,
 		);
 			err != nil {
 		}
@@ -197,7 +197,7 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 		if uUserId.Int64 > 0 {
 
 			isFriend := false;
-			if friendStatus.Int64 == 1{
+			if friendStatus.Int64 == 1 {
 				isFriend = true
 			}
 			user = &User{
@@ -209,11 +209,11 @@ func scanGroup(rows *sql.Rows) ([] *Group, error) {
 				Online:       uOnline.Bool,
 				CustomStatus: uCustomStatus.String,
 				Status:       UserStatus(uOnline.Bool, uCustomStatus.String),
-				Published:uPublished.Int64,
-				Friend: isFriend,
+				Published:    uPublished.Int64,
+				Friend:       isFriend,
 			}
 
-			if uPublished.Int64 == 0 || (uPublished.Int64 == 2 && friendStatus.Int64 != 1){
+			if uPublished.Int64 == 0 || (uPublished.Int64 == 2 && friendStatus.Int64 != 1) {
 				user.FirstName = "Anonymous"
 				user.LastName = ""
 				user.Avatar = config.PrivateAvatar
@@ -358,7 +358,7 @@ func LoadGroup(id int64, userId int64) (*Group, error) {
 		WHERE g.id = ?
 		
 	`
-	rows, err := db.DB.List(query, userId,userId, userId, id)
+	rows, err := db.DB.List(query, userId, userId, userId, id)
 
 	result, err := scanGroup(rows)
 
@@ -438,7 +438,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 		ORDER BY message.created DESC
 	`
 
-		rows, err = db.DB.List(query, userId,userId, userId, userId, userId, limit, skip, userId)
+		rows, err = db.DB.List(query, userId, userId, userId, userId, userId, limit, skip, userId)
 
 		if err != nil {
 			return nil, err
@@ -499,7 +499,7 @@ func Groups(search string, userId int64, limit int, skip int) ([]*Group, error) 
 
 		query = fmt.Sprintf(query, whereInString)
 
-		rr, e := db.DB.List(query, userId,userId, userId)
+		rr, e := db.DB.List(query, userId, userId, userId)
 
 		if e != nil {
 
@@ -858,6 +858,29 @@ func UpdateGroup(id int64, title string, avatar string) (bool) {
 
 	if updateId == 0 || err != nil {
 		return false
+	}
+
+	return true
+}
+
+func UserIsTyping(groupId, userId int64, isTyping bool) (bool) {
+
+	notify := map[string]interface{}{
+		"user_id":  userId,
+		"group_id": groupId,
+		"isTyping": isTyping,
+	}
+
+	payload := map[string]interface{}{
+		"action":  "userTyping",
+		"payload": notify,
+	}
+
+	ids := GetGroupMemberOnline(userId, groupId)
+
+	for _, id := range ids {
+
+		Instance.SendJson(id, payload)
 	}
 
 	return true
