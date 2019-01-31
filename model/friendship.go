@@ -46,7 +46,7 @@ func AddFriend(userId, friendId int64) (bool, error) {
 		return false, errors.New("can not add your self")
 	}
 
-	status := 0  // default we set 0 as request friend is sent
+	status := 0 // default we set 0 as request friend is sent
 
 	count, _ := db.DB.Count("SELECT COUNT(*) FROM friendship WHERE (user_id =? AND friend_id =?) OR (user_id =? AND friend_id =?)", userId, friendId, friendId, userId)
 
@@ -162,12 +162,11 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 
 	if search == "" {
 		q = `SELECT u.*, f.id, b.id, f.status  
-		FROM friendship as f 
-		INNER JOIN friendship as f1 ON f1.friend_id = f.user_id AND f1.status = 1
+		FROM friendship as f
 		INNER JOIN users as u ON f.friend_id = u.id 
 		LEFT JOIN blocked as b ON b.author = ? AND b.user = u.id 
-		WHERE f.user_id = ? AND f.status = 1 ORDER BY f.created DESC LIMIT ? OFFSET ?`
-		rows, err := db.DB.List(q, userId, userId, limit, skip)
+		WHERE (SELECT count(*) from friendship where friendship.friend_id = ? AND friendship.status = 1) > 0 AND f.user_id = ? AND f.status = 1 ORDER BY f.created DESC LIMIT ? OFFSET ?`
+		rows, err := db.DB.List(q, userId, userId, userId, limit, skip)
 
 		if err != nil {
 			return nil, err
@@ -191,15 +190,14 @@ func Friends(userId int64, search string, limit, skip int) ([] *User, error) {
 		// search
 		q = `SELECT u.*, f.id, b.id, f.status
 			FROM friendship as f
-			INNER JOIN friendship as f1 ON f1.friend_id = f.user_id AND f1.status = 1
 			INNER JOIN users as u ON f.friend_id = u.id 
 			LEFT JOIN blocked as b ON b.author = ? AND b.user = u.id 
-			WHERE f.user_id = ? AND f.status = 1 AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?) 
+			WHERE (SELECT count(*) from friendship where friendship.friend_id = ? AND friendship.status = 1) > 0 AND f.user_id = ? AND f.status = 1 AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?) 
 			ORDER BY f.created DESC LIMIT ? OFFSET ?`
 
 		search = `%` + search + `%`
 
-		rows, err := db.DB.List(q, userId,userId, search, search, search, limit, skip)
+		rows, err := db.DB.List(q, userId, userId, userId, search, search, search, limit, skip)
 
 		if err != nil {
 

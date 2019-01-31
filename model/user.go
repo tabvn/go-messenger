@@ -157,7 +157,7 @@ func (u *User) Create() (error) {
 		return e
 	}
 
-	query := `INSERT INTO users (uid, first_name, last_name, email, avatar , password, published,created, updated) VALUES (?,?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO users (uid, first_name, last_name, email, avatar , password, published,created, updated) VALUES (?,?, ?, ?, ?, ?, ?, ?, ?)`
 	currentTime := time.Now()
 	u.Created = currentTime.Unix()
 	u.Updated = currentTime.Unix()
@@ -165,6 +165,7 @@ func (u *User) Create() (error) {
 	result, err := db.DB.Insert(query, u.Uid, u.FirstName, u.LastName, u.Email, u.Avatar, u.Password, u.Published, u.Created, u.Updated)
 
 	if err != nil {
+
 		return err
 	}
 
@@ -362,12 +363,11 @@ func scanUser(s db.RowScanner) (*User, error) {
 		Published:         published.Int64,
 	}
 
-	if published.Int64 == 0 || (published.Int64 == 2 && !isFriend){
+	if published.Int64 == 0 || (published.Int64 == 2 && !isFriend) {
 		user.FirstName = "Anonymous"
 		user.LastName = ""
 		user.Avatar = config.PrivateAvatar
 	}
-
 
 	return user, nil
 }

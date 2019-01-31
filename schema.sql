@@ -373,7 +373,7 @@ CREATE TABLE `unreads` (
   KEY `message_id` (`message_id`),
   CONSTRAINT `unreads_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `unreads_ibfk_2` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=944 DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB AUTO_INCREMENT=943 DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -414,7 +414,7 @@ CREATE TABLE `users` (
   UNIQUE KEY `unique_email` (`email`),
   UNIQUE KEY `unique_uid` (`uid`),
   FULLTEXT KEY `fulltext` (`first_name`,`last_name`,`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -423,7 +423,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (10,1,'admin','','toan@tabvn.com','$2a$10$XRj3pj8/lTgBD4hXlV9CkOo/G.ObfTXisAOtnwsPnAydGTEBohGMS','',1,'online',NULL,NULL,NULL,NULL,1534289600,1541731148,1),(16,4,'Alex','','alex@gmail.com','$2a$10$feLVXNrNx5lP37dDAG5f6OQSWcIjc/.XfWKAOn0jWFw3gOpoKC/1i','',0,NULL,NULL,NULL,NULL,NULL,1534998787,1541731208,1),(18,7,'toan','','toan@gmail.com','$2a$10$4yEwhoeC49PlVzUcsiw.8exkGmJ9Q0huyiJx3oXNJsjaQXfqtvBRS','',0,NULL,NULL,NULL,NULL,NULL,1535003566,1535004015,1),(19,2,'Tyler','','tyler@gmail.com','$2a$10$5z9tkPN/fSMFLxy3C.4RGus.ai7wU2vHkakQba94qsq5xdbTvRMs2','',0,NULL,NULL,NULL,NULL,NULL,1535021130,1541731868,1),(20,3,'West','','west@gmail.com','$2a$10$DRFshGRj7XRfgt90PzRE1.UQfNvR7Ez85.fyRFpq4o1Rv0C.oed/e','',0,NULL,NULL,NULL,NULL,NULL,1541731127,1543911213,2);
+INSERT INTO `users` VALUES (10,1,'admin','','toan@tabvn.com','$2a$10$XRj3pj8/lTgBD4hXlV9CkOo/G.ObfTXisAOtnwsPnAydGTEBohGMS','',0,'online',NULL,NULL,NULL,NULL,1534289600,1541731148,1),(16,4,'Alex','','alex@gmail.com','$2a$10$feLVXNrNx5lP37dDAG5f6OQSWcIjc/.XfWKAOn0jWFw3gOpoKC/1i','',0,NULL,NULL,NULL,NULL,NULL,1534998787,1541731208,1),(18,7,'Toan 7','Mr','toan7@tabvn.com','$2a$10$4yEwhoeC49PlVzUcsiw.8exkGmJ9Q0huyiJx3oXNJsjaQXfqtvBRS','',0,NULL,NULL,NULL,NULL,NULL,1535003566,1548899802,1),(19,2,'Tyler','','tyler@gmail.com','$2a$10$5z9tkPN/fSMFLxy3C.4RGus.ai7wU2vHkakQba94qsq5xdbTvRMs2','',0,NULL,NULL,NULL,NULL,NULL,1535021130,1541731868,1),(20,3,'West','','west@gmail.com','$2a$10$DRFshGRj7XRfgt90PzRE1.UQfNvR7Ez85.fyRFpq4o1Rv0C.oed/e','',0,NULL,NULL,NULL,NULL,NULL,1541731127,1543911213,2),(21,9,'Toan 7','Mr','toan99@tabvn.com','$2a$10$6FupurzhH4rKVWecDJ9I7ODvpsKMNQLMNHjabJZv7sJL6FypwE70G','',0,NULL,NULL,NULL,NULL,NULL,1548900077,1548900077,1);
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -436,4 +436,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2019-01-10 17:57:44
+-- Dump completed on 2019-01-31  9:56:51

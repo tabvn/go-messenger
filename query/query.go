@@ -132,16 +132,30 @@ var Query = graphql.NewObject(
 
 					users, err := model.Users(userId, search, limit, skip)
 
-					if secret == nil {
-						for _, u := range users {
-							u.Email = ""
-						}
-					}
-
 					if err != nil {
 						return nil, err
 					}
-					return users, err
+
+					var listsUsers []*model.User
+					if secret == nil {
+						for _, u := range users {
+
+							if u.Published == 0 || (u.Published == 2 && !u.Friend){
+
+							}else{
+								listsUsers = append(listsUsers, u)
+							}
+							u.Email = ""
+						}
+
+						return listsUsers, nil
+					}
+
+					return users, nil
+
+
+
+
 				},
 			},
 			"blockedUsers": &graphql.Field{
