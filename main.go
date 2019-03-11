@@ -161,7 +161,7 @@ func main() {
 	})
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://drupal7.test","http://127.0.0.1:3000", "https://*.addictionrecovery.com", "http://*.addictionrecovery.com"},
+		AllowedOrigins:   []string{"http://localhost:3000","http://drupal7.test","http://127.0.0.1:3000", "https://*.addictionrecovery.com", "http://*.addictionrecovery.com"},
 		AllowCredentials: true,
 		AllowedMethods:   []string{"POST", "GET", "OPTIONS"},
 		AllowedHeaders: []string{"Accept", "Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization",

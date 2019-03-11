@@ -400,7 +400,7 @@ func (u *User) Load() (*User, error) {
 }
 func GetUser(id int64) (*User, error) {
 
-	row, err := db.DB.FindOne(`SELECT u.*, count(id), count(created)  FROM users AS u  WHERE id = ?`, id)
+	row, err := db.DB.FindOne(`SELECT u.*, count(id), count(created),count(updated)  FROM users AS u  WHERE id = ?`, id)
 
 	if err != nil {
 		return nil, err

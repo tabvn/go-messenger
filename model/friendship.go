@@ -6,6 +6,7 @@ import (
 	"github.com/graphql-go/graphql"
 	"errors"
 	"fmt"
+	"log"
 )
 
 type FriendShip struct {
@@ -66,39 +67,61 @@ func AddFriend(userId, friendId int64) (bool, error) {
 		return false, err
 	}
 	if numRows == 2 {
-
-		defer func() {
-
-			user, e := GetUser(friendId)
-			if e == nil && user != nil {
-				payload := map[string]interface{}{
-					"action": "add_friend",
-					"payload": map[string]interface{}{
-						"user_id": userId,
-						"friend": map[string]interface{}{
-							"id":         user.Id,
-							"first_name": user.FirstName,
-							"last_name":  user.LastName,
-							"avatar":     user.Avatar,
-							"friend":     true,
-							"blocked":    false,
-							"status":     UserStatus(user.Online, user.CustomStatus),
-						},
-					},
-				}
-
-				Instance.SendJson(friendId, payload)
-				Instance.SendJson(userId, payload)
-
-			}
-		}()
-
 		return true, nil
 	}
 
 	return false, nil
 }
 
+func NotifyFriendAdded(userId, friendId int64) {
+
+	user, e := GetUser(friendId)
+
+
+	if e == nil && user != nil {
+		payload := map[string]interface{}{
+			"action": "add_friend",
+			"payload": map[string]interface{}{
+				"user_id": userId,
+				"friend": map[string]interface{}{
+					"id":         user.Id,
+					"first_name": user.FirstName,
+					"last_name":  user.LastName,
+					"avatar":     user.Avatar,
+					"friend":     true,
+					"blocked":    false,
+					"status":     UserStatus(user.Online, user.CustomStatus),
+				},
+			},
+		}
+		Instance.SendJson(userId, payload)
+
+	}
+
+	// sent to friend
+	friend, e := GetUser(userId)
+
+	if e == nil && friend != nil {
+		payload := map[string]interface{}{
+			"action": "add_friend",
+			"payload": map[string]interface{}{
+				"user_id": friendId,
+				"friend": map[string]interface{}{
+					"id":         friend.Id,
+					"first_name": friend.FirstName,
+					"last_name":  friend.LastName,
+					"avatar":     friend.Avatar,
+					"friend":     true,
+					"blocked":    false,
+					"status":     UserStatus(friend.Online, friend.CustomStatus),
+				},
+			},
+		}
+		Instance.SendJson(friendId, payload)
+
+	}
+
+}
 func ResponseFriendRequest(userId, friendId int64, accepted bool) (bool, error) {
 
 	q := `UPDATE friendship SET status=? WHERE (user_id =? AND friend_id =?) OR (user_id =? AND friend_id =?)`
@@ -116,6 +139,9 @@ func ResponseFriendRequest(userId, friendId int64, accepted bool) (bool, error) 
 	if isUpdate < 1 {
 		return false, nil
 	}
+	if accepted{
+		NotifyFriendAdded(userId, friendId)
+	}
 
 	return true, nil
 }
@@ -127,11 +153,12 @@ func UnFriend(userId, friendId int64) (bool, error) {
 	numRows, err := db.DB.DeleteMany(q, userId, friendId, friendId, userId)
 
 	if err != nil {
+		log.Println("un friend error", err)
 		return false, err
 	}
 	if numRows == 2 {
 
-		payload := map[string]interface{}{
+		uPayload := map[string]interface{}{
 			"action": "un_friend",
 			"payload": map[string]interface{}{
 				"user_id":   userId,
@@ -139,10 +166,17 @@ func UnFriend(userId, friendId int64) (bool, error) {
 			},
 		}
 
-		defer func() {
+		fPayload := map[string]interface{}{
+			"action": "un_friend",
+			"payload": map[string]interface{}{
+				"user_id":   friendId,
+				"friend_id": userId,
+			},
+		}
 
-			Instance.SendJson(friendId, payload)
-			Instance.SendJson(userId, payload)
+		defer func() {
+			Instance.SendJson(userId, uPayload)
+			Instance.SendJson(friendId, fPayload)
 
 		}()
 
