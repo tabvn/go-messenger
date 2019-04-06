@@ -1,14 +1,14 @@
 package model
 
 import (
-	"github.com/graphql-go/graphql"
-	"messenger/db"
 	"database/sql"
-	"fmt"
 	"errors"
+	"fmt"
+	"github.com/graphql-go/graphql"
+	"messenger/config"
+	"messenger/db"
 	"messenger/helper"
 	"strconv"
-	"messenger/config"
 )
 
 type Member struct {
@@ -858,6 +858,23 @@ func UpdateGroup(id int64, title string, avatar string) (bool) {
 
 	if updateId == 0 || err != nil {
 		return false
+	}
+
+	data := map[string]interface{}{
+		"title":  title,
+		"id":     id,
+		"avatar": avatar,
+	}
+
+	payload := map[string]interface{}{
+		"action":  "groupUpdated",
+		"payload": data,
+	}
+
+	ids := GetGroupMemberOnline(0, id)
+
+	for _, id := range ids {
+		Instance.SendJson(id, payload)
 	}
 
 	return true
