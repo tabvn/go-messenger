@@ -1036,6 +1036,8 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 				uid := int64(userId)
 				gid := int64(groupId)
 
+				var addByUserId int64
+
 				if secret == nil {
 					auth = model.GetAuth(params)
 					if auth == nil {
@@ -1044,13 +1046,15 @@ var Mutation = graphql.NewObject(graphql.ObjectConfig{
 						// let check if user has perm to delete a message
 						canJoin := model.CanJoinGroup(auth.UserId, uid, gid)
 
+						addByUserId = auth.UserId
+
 						if !canJoin {
 							return nil, errors.New("access denied")
 						}
 					}
 				}
 
-				result := model.JoinGroup(uid, gid)
+				result := model.JoinGroup(uid, gid, addByUserId)
 
 				return result, nil
 

@@ -589,11 +589,11 @@ func CanJoinGroup(authorId, userId, groupId int64) (bool) {
 	return false
 }
 
-func JoinGroup(userId, groupId int64) (bool) {
+func JoinGroup(userId, groupId, addByUserId int64) (bool) {
 
-	q := `INSERT INTO members (user_id, group_id, blocked, created) VALUES (?, ?, ?, ?)`
+	q := `INSERT INTO members (user_id, group_id, blocked, created, added_by) VALUES (?, ?, ?, ?, ?)`
 
-	insertedId, err := db.DB.Insert(q, userId, groupId, 0, helper.GetUnixTimestamp())
+	insertedId, err := db.DB.Insert(q, userId, groupId, 0, helper.GetUnixTimestamp(), addByUserId)
 
 	ids := GetGroupMemberOnline(userId, groupId)
 
@@ -605,6 +605,7 @@ func JoinGroup(userId, groupId int64) (bool) {
 			"action": "join_group",
 			"payload": map[string]interface{}{
 				"group_id": groupId,
+				"added_by": addByUserId,
 				"user": map[string]interface{}{
 					"id":         user.Id,
 					"first_name": user.FirstName,
