@@ -1,15 +1,15 @@
 package model
 
 import (
-	"time"
+	"database/sql"
+	"errors"
+	"fmt"
 	"github.com/graphql-go/graphql"
 	"messenger/db"
-	"database/sql"
-	"fmt"
 	"messenger/helper"
-	"errors"
-	"strconv"
 	"messenger/sanitize"
+	"strconv"
+	"time"
 )
 
 type Message struct {
@@ -620,10 +620,12 @@ func CreateConversation(authorId int64, userIds []int64, messageBody string, mes
 	}
 	if gid > 0 {
 		// got group let create message
-		_, err := CreateMessage(gid, authorId, messageBody, messageEmoji, messageGif, attachments)
+		if len(messageBody) > 0 || len(messageGif) > 0 || len(attachments) > 0 {
+			_, err := CreateMessage(gid, authorId, messageBody, messageEmoji, messageGif, attachments)
 
-		if err != nil {
-			return nil, err
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		group, err := LoadGroup(gid, authorId)

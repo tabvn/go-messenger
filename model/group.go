@@ -829,6 +829,21 @@ func FindOrCreateGroup(authorId int64, userIds [] int64, title, avatar string) (
 
 		}
 		if numRows == int64(len(userIds)) {
+
+			defer func() {
+
+				payload := map[string]interface{}{
+					"action":  "group_created",
+					"payload": gid,
+				}
+
+				userIds := GetGroupMemberOnline(authorId, gid)
+				for _, id := range userIds {
+					Instance.SendJson(id, payload)
+				}
+
+			}()
+
 			return gid, nil
 		} else {
 			// delete group
